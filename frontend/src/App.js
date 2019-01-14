@@ -61,7 +61,7 @@ const axiosGraphQL = axios.create({
 class SimpleButton extends React.Component{
   render(){
     return (
-      <Button variant="contained" className={this.props.classes.button}>
+      <Button variant="contained" className={this.props.classes.button} onClick={this.props.onClickEvent}>
         {this.props.label}
       </Button>
     );
@@ -77,22 +77,23 @@ class SimpleTable extends React.Component {
           <TableHead>
             <TableRow>
               <TableCell>Tech Item</TableCell>
-              <TableCell numeric>Quantity</TableCell>
-              <TableCell numeric>Last Checkout At...</TableCell>
-              <TableCell numeric>Checked Out By</TableCell>
+              <TableCell align="true">Quantity</TableCell>
+              <TableCell align="true">Last Check out At...</TableCell>
+              <TableCell align="true">Last Check in At...</TableCell>
+              <TableCell align="true">Checked Out By</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {console.log(this.props)}
             {this.props.results.map((row, index) => {
               return (
                 <TableRow key={index}>
                   <TableCell component="th" scope="row">
                     {row.name}
                   </TableCell>
-                  <TableCell numeric>{row.quantity}</TableCell>
-                  <TableCell numeric>{row.dateOut}</TableCell>
-                  <TableCell numeric>{row.userOut}</TableCell>
+                  <TableCell align="true">{row.quantity}</TableCell>
+                  <TableCell align="true">{row.dateOut}</TableCell>
+                  <TableCell align="true">{row.dateIn}</TableCell>
+                  <TableCell align="true">{row.userOut}</TableCell>
                 </TableRow>
               );
             })}
@@ -160,40 +161,88 @@ const RentalTable = withStyles(tableStyles)(SimpleTable);
 const TextFields = withStyles(textBoxStyles)(SimpleTextFields);
 
 const GET_ITEMS = `
-mutation{
-  showItems{
-    items{
-      id,
-      name,
-      dateIn,
-      dateOut,
-      userOut,
-      quantity
+  mutation{
+    showItems{
+      items{
+        id,
+        name,
+        dateIn,
+        dateOut,
+        userOut,
+        quantity
+      }
     }
   }
-}
 `;
 
 class App extends Component {
   constructor(props) {
     super(props);
-
     this.state = {
       results: []
     };
+    this.checkOutItem = this.checkOutItem.bind(this);
+    this.checkInItem = this.checkInItem.bind(this);
   }
 
   componentDidMount() {
-    this.onFetchFromGraphQL();
+    this.getAllItems();
   }
 
   //TODO: `GET` should be handled by `Query` not `Mutation`...
-  onFetchFromGraphQL = () => {
+  getAllItems() {
     axiosGraphQL
       .post('', { query: GET_ITEMS })
-      .then(results => {console.log(results.data.data);this.setState({results: results.data.data.showItems.items})},
+      .then(results => {this.setState({results: results.data.data.showItems.items})},
             error => {console.log(error)});
   };
+
+  checkOutItem() {
+    let name = "tomato";
+    let quantity = 1;
+    let checkedOutBy = "Andrei";
+    let CHECKOUT_ITEM = `
+    mutation{
+      checkOutItem(name: "${name}", quantity: ${quantity}, checkedOutBy: "${checkedOutBy}"){
+        items{
+          id,
+          name,
+          dateIn,
+          dateOut,
+          quantity,
+          userOut
+        }
+      }
+    }
+  `;
+    axiosGraphQL
+      .post('', { query: CHECKOUT_ITEM} )
+      .then(results => {this.setState({results: results.data.data.checkOutItem.items})},
+            error => {console.log(error); console.log(CHECKOUT_ITEM)});
+  }
+
+  checkInItem() {
+    let name = "tomato";
+    let quantity = 1;
+    let CHECKIN_ITEM = `
+    mutation{
+      checkInItem(name: "${name}", quantity: ${quantity}){
+        items{
+          id,
+          name,
+          dateIn,
+          dateOut,
+          quantity,
+          userOut
+        }
+      }
+    }
+  `;
+    axiosGraphQL
+      .post('', { query: CHECKIN_ITEM} )
+      .then(results => {this.setState({results: results.data.data.checkInItem.items})},
+            error => {console.log(error); console.log(CHECKIN_ITEM)});
+  }
 
   render() {
     return (
@@ -210,9 +259,9 @@ class App extends Component {
         </header>
         <div className="container">
           <h1>Available Items</h1>
-          <RentalTable results={this.state.results} />
-          <BasicButton label="+"/>
-          <BasicButton label="-"/>
+          <RentalTable results={this.state.results}/>
+          <BasicButton label="+" onClickEvent={this.checkInItem} />
+          <BasicButton label="-" onClickEvent={this.checkOutItem} />
         </div>
       </div>
     );

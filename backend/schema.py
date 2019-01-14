@@ -93,7 +93,7 @@ class IncrementItemQuantity(graphene.Mutation):
     """
     class Arguments:
         name = graphene.String(required=True)
-        quantity = graphene.Int()
+        quantity = graphene.Int(required=True)
 
     item = graphene.Field(lambda: ItemObject)
 
@@ -107,6 +107,52 @@ class IncrementItemQuantity(graphene.Mutation):
         item.quantity += quantity
         return IncrementItemQuantity(item)
 
+class CheckOutItem(graphene.Mutation):
+    """
+    Basic logic for checking out items
+    """
+    class Arguments:
+        name = graphene.String(required=True)
+        quantity = graphene.Int(required=True)
+        checked_out_by = graphene.String(required=True)
+
+    items = graphene.List(ItemObject)
+
+    def mutate(self, _, name, quantity, checked_out_by):
+        if quantity < 0:
+            raise Exception("Positive quantities only.")
+
+        item = Item.query.filter_by(name=name).first()
+        if item.quantity - quantity < 0:
+            raise Exception("Item not available.")
+        item.quantity -= quantity
+        item.user_out = checked_out_by
+        item.date_out = datetime.now()
+        items = Item.query.all()
+        return CheckOutItem(items)
+
+class CheckInItem(graphene.Mutation):
+    """
+    Basic logic for checking in items.
+    This resets the "last checked out by" fields.
+    """
+    class Arguments:
+        name = graphene.String(required=True)
+        quantity = graphene.Int(required=True)
+
+    items = graphene.List(ItemObject)
+
+    def mutate(self, _, name, quantity):
+        if quantity < 0:
+            raise Exception("Positive quantities only.")
+
+        item = Item.query.filter_by(name=name).first()
+        item.user_out = None
+        item.date_out = None
+        item.date_in = datetime.now()
+        item.quantity += quantity
+        items = Item.query.all()
+        return CheckInItem(items)
 
 class Mutation(graphene.ObjectType):
     """
@@ -116,3 +162,5 @@ class Mutation(graphene.ObjectType):
     delete_item = DeleteItem.Field()
     show_items = ShowItems.Field()
     increment_item = IncrementItemQuantity.Field()
+    check_out_item = CheckOutItem.Field()
+    check_in_item = CheckInItem.Field()
