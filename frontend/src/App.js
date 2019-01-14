@@ -197,10 +197,9 @@ class App extends Component {
             error => {console.log(error)});
   };
 
-  checkOutItem() {
-    let name = "tomato";
-    let quantity = 1;
-    let checkedOutBy = "Andrei";
+  //TODO: checkIn/Out has been tested using hard-coded data;
+  //Implement functionality to get data from within table.
+  checkOutItem(name, quantity, checkedOutBy) {
     let CHECKOUT_ITEM = `
     mutation{
       checkOutItem(name: "${name}", quantity: ${quantity}, checkedOutBy: "${checkedOutBy}"){
@@ -221,9 +220,7 @@ class App extends Component {
             error => {console.log(error); console.log(CHECKOUT_ITEM)});
   }
 
-  checkInItem() {
-    let name = "tomato";
-    let quantity = 1;
+  checkInItem(name, quantity) {
     let CHECKIN_ITEM = `
     mutation{
       checkInItem(name: "${name}", quantity: ${quantity}){
@@ -244,6 +241,14 @@ class App extends Component {
             error => {console.log(error); console.log(CHECKIN_ITEM)});
   }
 
+  createItem(){
+    console.log("Implement me!");
+  }
+
+  deleteItem(){
+    console.log("Implement me!");
+  }
+
   render() {
     return (
       <div className="App">
@@ -260,8 +265,8 @@ class App extends Component {
         <div className="container">
           <h1>Available Items</h1>
           <RentalTable results={this.state.results}/>
-          <BasicButton label="+" onClickEvent={this.checkInItem} />
-          <BasicButton label="-" onClickEvent={this.checkOutItem} />
+          <BasicButton label="+" onClickEvent={this.createItem} />
+          <BasicButton label="-" onClickEvent={this.deleteItem} />
         </div>
       </div>
     );
