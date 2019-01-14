@@ -1,9 +1,10 @@
 from flask_graphql import GraphQLView
 import graphene
+from flask_cors import CORS
 from schema import Mutation, Query
-
 from utils import app, db
 
+CORS(app)
 schema = graphene.Schema(query=Query, mutation=Mutation)
 
 # Basic GraphQL set-up

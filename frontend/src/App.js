@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import axios from 'axios';
 import PropTypes from 'prop-types';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
@@ -9,7 +10,6 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import TextField from '@material-ui/core/TextField';
 import Paper from '@material-ui/core/Paper';
-//import { Button, Image, View, Text } from 'react-native'; TODO: For some reason, this package isn't getting imported ??
 import logo from './logo.svg';
 import './App.css';
 
@@ -51,58 +51,56 @@ const textBoxStyles = theme => ({
   },
 });
 
-function createData(name, quantity, last_checkout, checked_out_by) {
-  return { name, quantity, last_checkout, checked_out_by };
-}
+const axiosGraphQL = axios.create({
+  baseURL: 'http://127.0.0.1:5000/graphql',
+  headers: {
+    
+  }
+});
 
-// TODO: Data should be from a DB
-const rows = [
-  createData('VGA to HDMI cable', 2, '1PM', 'Andrei'),
-  createData('iPhone Charger', 1, '6PM', 'Andrei'),
-  createData('Android Charger', 0, '3PM', 'Andrei'),
-];
-
-function SimpleButton(props) {
-  const { classes } = props;
-  return (
-    <Button variant="contained" className={classes.button}>
-    Log In
-    </Button>
-  );
+class SimpleButton extends React.Component{
+  render(){
+    return (
+      <Button variant="contained" className={this.props.classes.button}>
+        {this.props.label}
+      </Button>
+    );
+  }
 }
 
 // TODO: This one should be maybe in a separate file ...?
-function SimpleTable(props) {
-  const { classes } = props;
-
-  return (
-    <Paper className={classes.root}>
-      <Table className={classes.table}>
-        <TableHead>
-          <TableRow>
-            <TableCell>Tech Item</TableCell>
-            <TableCell numeric>Quantity</TableCell>
-            <TableCell numeric>Last Checkout At...</TableCell>
-            <TableCell numeric>Checked Out By</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.map(row => {
-            return (
-              <TableRow key={row.id}>
-                <TableCell component="th" scope="row">
-                  {row.name}
-                </TableCell>
-                <TableCell numeric>{row.quantity}</TableCell>
-                <TableCell numeric>{row.last_checkout}</TableCell>
-                <TableCell numeric>{row.checked_out_by}</TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </Paper>
-  );
+class SimpleTable extends React.Component {
+  render(){
+    return (
+      <Paper className={this.props.classes.root}>
+        <Table className={this.props.classes.table}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Tech Item</TableCell>
+              <TableCell numeric>Quantity</TableCell>
+              <TableCell numeric>Last Checkout At...</TableCell>
+              <TableCell numeric>Checked Out By</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {console.log(this.props)}
+            {this.props.results.map((row, index) => {
+              return (
+                <TableRow key={index}>
+                  <TableCell component="th" scope="row">
+                    {row.name}
+                  </TableCell>
+                  <TableCell numeric>{row.quantity}</TableCell>
+                  <TableCell numeric>{row.dateOut}</TableCell>
+                  <TableCell numeric>{row.userOut}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Paper>
+    );
+  }
 }
 
 class SimpleTextFields extends React.Component {
@@ -157,28 +155,64 @@ SimpleButton.propTypes = {
   classes: PropTypes.object.isRequired,
 };
 
-const LoginButton = withStyles(buttonStyles)(SimpleButton);
+const BasicButton = withStyles(buttonStyles)(SimpleButton);
 const RentalTable = withStyles(tableStyles)(SimpleTable);
 const TextFields = withStyles(textBoxStyles)(SimpleTextFields);
 
+const GET_ITEMS = `
+mutation{
+  showItems{
+    items{
+      id,
+      name,
+      dateIn,
+      dateOut,
+      userOut,
+      quantity
+    }
+  }
+}
+`;
 
 class App extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      results: []
+    };
+  }
+
+  componentDidMount() {
+    this.onFetchFromGraphQL();
+  }
+
+  //TODO: `GET` should be handled by `Query` not `Mutation`...
+  onFetchFromGraphQL = () => {
+    axiosGraphQL
+      .post('', { query: GET_ITEMS })
+      .then(results => {console.log(results.data.data);this.setState({results: results.data.data.showItems.items})},
+            error => {console.log(error)});
+  };
+
   render() {
     return (
       <div className="App">
         <header className="App-header">
-            <div class="logo">
+            <div className="logo">
               <img src={logo} className="App-logo" alt="logo" />
               <p>Tech Cabinet Rental Platform</p>
             </div>
-            <div class="login">
+            <div className="login">
               <TextFields/>
-              <LoginButton/>
+              <BasicButton label="LOG IN"/>
             </div>
         </header>
-        <div class="container">
+        <div className="container">
           <h1>Available Items</h1>
-          <RentalTable/>
+          <RentalTable results={this.state.results} />
+          <BasicButton label="+"/>
+          <BasicButton label="-"/>
         </div>
       </div>
     );
