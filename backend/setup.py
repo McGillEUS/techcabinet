@@ -11,7 +11,7 @@ engine = create_engine("mysql://localhost/mysql")
 conn = engine.connect()
 conn.execute("COMMIT")
 try:
-    conn.execute("CREATE DATABASE shopprdata")
+    conn.execute("CREATE DATABASE techcabinetdata")
 except exc.ProgrammingError:
     print("exists")
 conn.close()

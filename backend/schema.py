@@ -1,7 +1,7 @@
 from datetime import datetime
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField
-from tables import Product, Cart, CartItem
+from tables import Item
 
 from utils import db
 
@@ -29,7 +29,7 @@ class Query(graphene.ObjectType):
     Basic Query object.
     """
     node = graphene.relay.Node.Field()
-    all_products = SQLAlchemyConnectionField(ProductObject)
+    all_items = SQLAlchemyConnectionField(ItemObject)
 
 
 class CreateItem(graphene.Mutation):
@@ -39,22 +39,73 @@ class CreateItem(graphene.Mutation):
     be allowed to create products.
 
     Arguments:
-    #TODO: Complete this
     name: Name of item.
-    date_in:
-    date_out:
-    user_out:
-    quantity:
+    quantity: Quantity of item available
     """
     class Arguments:
         name = graphene.String(required=True)
-        #TODO: Complete        
+        quantity = graphene.Int(required=True)
 
     item = graphene.Field(lambda: ItemObject)
 
-    def mutate(self, _, title, price, inventory_count):
-
+    def mutate(self, _, name, quantity):
+        item = Item(name=name, quantity=quantity, date_in=datetime.now())
+        db.session.add(item)
+        db.session.commit()
         return CreateItem(item=item)
+
+
+class DeleteItem(graphene.Mutation):
+    """
+    Deletes an Item.
+
+    Arguments:
+    name: Name of item
+    """
+    class Arguments:
+        name = graphene.String(required=True)
+
+    items = graphene.List(ItemObject)
+
+    def mutate(self, _, name):
+        items = Item.query.filter_by(name=name).all()
+        if not items:
+            raise Exception(f"No item with the name {name} found!")
+        for item in items:
+            db.session.delete(item)
+        db.session.commit()
+        return DeleteItem(items=items)
+
+
+class ShowItems(graphene.Mutation):
+    """
+    Shows all items in the database
+    """
+    items = graphene.List(ItemObject)
+
+    def mutate(self, _):
+        items = Item.query.all()
+        return ShowItems(items=items)
+
+class IncrementItemQuantity(graphene.Mutation):
+    """
+    Increments quantity of an item
+    """
+    class Arguments:
+        name = graphene.String(required=True)
+        quantity = graphene.Int()
+
+    item = graphene.Field(lambda: ItemObject)
+
+    def mutate(self, _, name, quantity):
+        item = Item.query.filter_by(name=name).first()
+        if not item:
+            raise Exception(f"Item named {name} not found!")
+        if item.quantity + quantity < 0:
+            raise Exception(f"Item {name} not available anymore!")
+
+        item.quantity += quantity
+        return IncrementItemQuantity(item)
 
 
 class Mutation(graphene.ObjectType):
@@ -62,3 +113,6 @@ class Mutation(graphene.ObjectType):
     Defines all available mutations.
     """
     create_item = CreateItem.Field()
+    delete_item = DeleteItem.Field()
+    show_items = ShowItems.Field()
+    increment_item = IncrementItemQuantity.Field()

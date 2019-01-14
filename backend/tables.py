@@ -9,10 +9,10 @@ class Item(db.Model):
     date_in = db.Column(db.DateTime)
     date_out = db.Column(db.DateTime)
     user_out = db.Column(db.String(256))
-    inventory_count = db.Column(db.Integer)
+    quantity = db.Column(db.Integer)
 
     def __repr__(self):
-        return '<Product %r>' % self.title
+        return '<Item %r>' % self.name
 
 
 class User(db.Model):
@@ -24,4 +24,4 @@ class User(db.Model):
     date_created = db.Column(db.DateTime)
 
     def __repr__(self):
-        return '<Cart %r>' % self.id
+        return '<User %r>' % self.name
