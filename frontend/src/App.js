@@ -12,17 +12,9 @@ import TextField from '@material-ui/core/TextField';
 import Paper from '@material-ui/core/Paper';
 import logo from './logo.svg';
 import './App.css';
+import { FormHelperText } from '@material-ui/core';
 
 // TODO: Move all these styles elsewhere!!!
-const buttonStyles = theme => ({
-  button: {
-    margin: theme.spacing.unit,
-  },
-  input: {
-    display: 'none',
-  },
-});
-
 const tableStyles = theme => ({
   root: {
     width: '100%',
@@ -35,14 +27,16 @@ const tableStyles = theme => ({
 });
 
 const textBoxStyles = theme => ({
-  container: {
-    display: 'flex',
-    flexWrap: 'wrap',
-  },
   textField: {
     marginLeft: theme.spacing.unit,
     marginRight: theme.spacing.unit,
   },
+  
+  button: {
+    display: 'flex',
+    marginLeft: '40%',
+  },
+  
   dense: {
     marginTop: 16,
   },
@@ -57,16 +51,6 @@ const axiosGraphQL = axios.create({
     
   }
 });
-
-class SimpleButton extends React.Component{
-  render(){
-    return (
-      <Button variant="contained" className={this.props.classes.button} onClick={this.props.onClickEvent}>
-        {this.props.label}
-      </Button>
-    );
-  }
-}
 
 // TODO: This one should be maybe in a separate file ...?
 class SimpleTable extends React.Component {
@@ -104,10 +88,10 @@ class SimpleTable extends React.Component {
   }
 }
 
-class SimpleTextFields extends React.Component {
+class SimpleTextField extends React.Component {
   state = {
-    username: '',
-    password: ''
+    textFieldLabel1: '',
+    textFieldLabel2: ''
   };
 
   handleChange = name => event => {
@@ -122,29 +106,33 @@ class SimpleTextFields extends React.Component {
     return (
       <form className={classes.container} noValidate autoComplete="off">
         <TextField
-          id="filled-name"
-          label="Username"
-          className={classes.textField}
+          id="field-1"
+          label={this.props.textFieldLabel1}
+          className={this.props.classes.textField}
           value={this.state.username}
-          onChange={this.handleChange('username')}
+          onChange={this.handleChange('textFieldLabel1')}
           margin="normal"
           variant="filled"
         />
         <TextField
-          id="filled-name"
-          label="Password"
-          className={classes.textField}
+          id="field-2"
+          label={this.props.textFieldLabel2}
+          className={this.props.classes.textField}
           value={this.state.password}
-          onChange={this.handleChange('password')}
+          onChange={this.handleChange('textFieldLabel2')}
           margin="normal"
           variant="filled"
         />
+        <Button variant="contained" className={this.props.classes.button} onClick={(e) => this.props.onClickEvent(this.state.textFieldLabel1, this.state.textFieldLabel2)}>
+          {this.props.label}
+        </Button>
       </form>
     );
   }
 }
 
-SimpleTextFields.propTypes = {
+
+SimpleTextField.propTypes = {
   classes: PropTypes.object.isRequired,
 };
 
@@ -152,13 +140,8 @@ SimpleTable.propTypes = {
   classes: PropTypes.object.isRequired
 };
 
-SimpleButton.propTypes = {
-  classes: PropTypes.object.isRequired,
-};
-
-const BasicButton = withStyles(buttonStyles)(SimpleButton);
 const RentalTable = withStyles(tableStyles)(SimpleTable);
-const TextFields = withStyles(textBoxStyles)(SimpleTextFields);
+const SimpleStyledTextField = withStyles(textBoxStyles)(SimpleTextField);
 
 const GET_ITEMS = `
   mutation{
@@ -183,6 +166,7 @@ class App extends Component {
     };
     this.checkOutItem = this.checkOutItem.bind(this);
     this.checkInItem = this.checkInItem.bind(this);
+    this.createItem = this.createItem.bind(this);
   }
 
   componentDidMount() {
@@ -241,11 +225,32 @@ class App extends Component {
             error => {console.log(error); console.log(CHECKIN_ITEM)});
   }
 
-  createItem(){
-    console.log("Implement me!");
+  createItem(name, quantity){
+    console.log(name);
+    console.log(quantity);
+    let CREATE_ITEM = `
+    mutation{
+      createItem(name: "${name}", quantity: ${quantity}){
+        items{
+          id,
+          name,
+          dateIn,
+          quantity
+        }
+      }
+    }
+  `;
+    axiosGraphQL
+    .post('', { query: CREATE_ITEM} )
+    .then(results => {console.log(results); this.setState({results: results.data.data.createItem.items})},
+          error => {console.log(error); console.log(CREATE_ITEM)});
   }
 
   deleteItem(){
+    console.log("Implement me!");
+  }
+
+  logIn(){
     console.log("Implement me!");
   }
 
@@ -258,15 +263,15 @@ class App extends Component {
               <p>Tech Cabinet Rental Platform</p>
             </div>
             <div className="login">
-              <TextFields/>
-              <BasicButton label="LOG IN"/>
+              <SimpleStyledTextField textFieldLabel1="username" textFieldLabel2="password" label="Log In" onClickEvent={this.logIn}/>
             </div>
         </header>
         <div className="container">
           <h1>Available Items</h1>
           <RentalTable results={this.state.results}/>
-          <BasicButton label="+" onClickEvent={this.createItem} />
-          <BasicButton label="-" onClickEvent={this.deleteItem} />
+          <div className="form">
+            <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
+          </div>
         </div>
       </div>
     );

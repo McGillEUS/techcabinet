@@ -46,13 +46,14 @@ class CreateItem(graphene.Mutation):
         name = graphene.String(required=True)
         quantity = graphene.Int(required=True)
 
-    item = graphene.Field(lambda: ItemObject)
+    items = graphene.List(ItemObject)
 
     def mutate(self, _, name, quantity):
         item = Item(name=name, quantity=quantity, date_in=datetime.now())
         db.session.add(item)
         db.session.commit()
-        return CreateItem(item=item)
+        items = Item.query.all()
+        return CreateItem(items=items)
 
 
 class DeleteItem(graphene.Mutation):
