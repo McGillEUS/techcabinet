@@ -10,6 +10,11 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import TextField from '@material-ui/core/TextField';
 import Paper from '@material-ui/core/Paper';
+import Dialog from '@material-ui/core/Dialog';
+import DialogActions from '@material-ui/core/DialogActions';
+import DialogContent from '@material-ui/core/DialogContent';
+import DialogContentText from '@material-ui/core/DialogContentText';
+import DialogTitle from '@material-ui/core/DialogTitle';
 import logo from './logo.svg';
 import './App.css';
 import { FormHelperText } from '@material-ui/core';
@@ -52,11 +57,66 @@ const axiosGraphQL = axios.create({
   }
 });
 
-// TODO: This one should be maybe in a separate file ...?
+
+// TODO: Everything below should go in a separate file!
+
+class RequestDialog extends React.Component{
+  render(){
+    return(
+      <Dialog open={true} aria-labelledby="form-dialog-title">
+      <DialogTitle id="form-dialog-title">Check out</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          You are checking out ...
+        </DialogContentText>
+        <TextField
+          autoFocus
+          margin="dense"
+          id="email"
+          label="Email Address"
+          type="email"
+          fullWidth
+        />
+        <TextField
+          autoFocus
+          margin="dense"
+          id="name"
+          label="Full Name"
+          type="name"
+          fullWidth
+        />
+        <TextField
+          autoFocus
+          margin="dense"
+          id="id"
+          label="Student ID"
+          type="id"
+          fullWidth
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button color="primary">
+          Cancel
+        </Button>
+        <Button color="primary">
+          Submit
+        </Button>
+      </DialogActions>
+    </Dialog>
+    )
+  }
+}
+
 class SimpleTable extends React.Component {
+
+  handleClick(name){
+    console.log(name);
+  }
+
   render(){
     return (
       <Paper className={this.props.classes.root}>
+        <RequestDialog/>
         <Table className={this.props.classes.table}>
           <TableHead>
             <TableRow>
@@ -70,7 +130,7 @@ class SimpleTable extends React.Component {
           <TableBody>
             {this.props.results.map((row, index) => {
               return (
-                <TableRow key={index}>
+                <TableRow onClick={() => this.handleClick(row.name)} key={index}>
                   <TableCell component="th" scope="row">
                     {row.name}
                   </TableCell>
@@ -257,6 +317,7 @@ class App extends Component {
   render() {
     return (
       <div className="App">
+
         <header className="App-header">
             <div className="logo">
               <img src={logo} className="App-logo" alt="logo" />
