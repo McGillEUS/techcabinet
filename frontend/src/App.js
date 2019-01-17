@@ -66,6 +66,7 @@ class RequestDialog extends React.Component{
     name: '',
     email: '',
     studentid: '',
+    quantity: ''
   };
 
   handleChange = name => event => {
@@ -108,13 +109,25 @@ class RequestDialog extends React.Component{
           fullWidth
           onChange={this.handleChange('studentid')}
         />
+        <TextField
+          autoFocus
+          margin="dense"
+          id="id"
+          label="Quantity"
+          type="id"
+          fullWidth
+          onChange={this.handleChange('quantity')}
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={this.props.closeDialogAction} color="primary">
           Cancel
         </Button>
-        <Button onClick={() => {this.props.submitDialogAction(this.state.name,this.state.email,this.state.studentid); this.setState({name: '', email: '', studentid: ''})}} color="primary">
+        <Button onClick={() => {this.props.submitDialogAction(this.state.name,this.state.email,this.state.studentid, this.state.quantity); this.setState({name: '', email: '', studentid: ''})}} color="primary">
           Submit
+        </Button>
+        <Button onClick={this.props.deleteDialogAction} color="primary">
+          Delete
         </Button>
       </DialogActions>
     </Dialog>
@@ -129,29 +142,33 @@ class SimpleTable extends React.Component {
       dialogVisible: false,
       item: ""
     };
-    this.closeDialog = this.closeDialog.bind(this)
-    this.submitDialog = this.submitDialog.bind(this)
+    this.closeDialog = this.closeDialog.bind(this);
+    this.submitDialog = this.submitDialog.bind(this);
+    this.deleteDialog = this.deleteDialog.bind(this);
   }
 
   handleClick(name){
-    this.setState({dialogVisible: true, item: name})
+    this.setState({dialogVisible: true, item: name});
   }
 
   closeDialog(){
-    this.setState({dialogVisible: false})
+    this.setState({dialogVisible: false});
   }
 
-  submitDialog(user, email, studentID){
-    console.log(user);
-    console.log(email);
-    console.log(studentID);
-    this.setState({dialogVisible: false})  
+  submitDialog(user, email, studentID, quantity){
+    this.props.requestItem(this.state.item, user, email, studentID, quantity)
+    this.setState({dialogVisible: false});
+  }
+
+  deleteDialog(){
+    this.props.deleteItem(this.state.item);
+    this.setState({dialogVisible: false});
   }
 
   render(){
     return (
       <Paper className={this.props.classes.root}>
-        <RequestDialog visible={this.state.dialogVisible} item={this.state.item} closeDialogAction={this.closeDialog} submitDialogAction={this.submitDialog}/>
+        <RequestDialog visible={this.state.dialogVisible} item={this.state.item} closeDialogAction={this.closeDialog} submitDialogAction={this.submitDialog} deleteDialogAction={this.deleteDialog}/>
         <Table className={this.props.classes.table}>
           <TableHead>
             <TableRow>
@@ -159,7 +176,6 @@ class SimpleTable extends React.Component {
               <TableCell align="true">Quantity</TableCell>
               <TableCell align="true">Last Check out At...</TableCell>
               <TableCell align="true">Last Check in At...</TableCell>
-              <TableCell align="true">Checked Out By</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -172,7 +188,6 @@ class SimpleTable extends React.Component {
                   <TableCell align="true">{row.quantity}</TableCell>
                   <TableCell align="true">{row.dateOut}</TableCell>
                   <TableCell align="true">{row.dateIn}</TableCell>
-                  <TableCell align="true">{row.userOut}</TableCell>
                 </TableRow>
               );
             })}
@@ -249,8 +264,24 @@ const GET_ITEMS = `
         name,
         dateIn,
         dateOut,
-        userOut,
         quantity
+      }
+    }
+  }
+`;
+
+const GET_TRANSACTIONS = `
+  mutation{
+    showTransactions{
+      transactions{
+        id,
+        accepted,
+        userAccepted,
+        userRequestedId,
+        requestedQuantity,
+        dateAccepted,
+        dateRequested,
+        itemId
       }
     }
   }
@@ -260,15 +291,20 @@ class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      results: []
+      results: [],
+      transactions: []
     };
     this.checkOutItem = this.checkOutItem.bind(this);
     this.checkInItem = this.checkInItem.bind(this);
     this.createItem = this.createItem.bind(this);
+    this.deleteItem = this.deleteItem.bind(this);
+    this.requestItem = this.requestItem.bind(this);
+    this.acceptOrder = this.acceptOrder.bind(this);
   }
 
   componentDidMount() {
     this.getAllItems();
+    this.getAllTransactions();
   }
 
   //TODO: `GET` should be handled by `Query` not `Mutation`...
@@ -278,6 +314,13 @@ class App extends Component {
       .then(results => {this.setState({results: results.data.data.showItems.items})},
             error => {console.log(error)});
   };
+
+  getAllTransactions(){
+    axiosGraphQL
+    .post('', { query: GET_TRANSACTIONS })
+    .then(results => {this.setState({transactions: results.data.data.showTransactions.transactions})},
+          error => {console.log(error)});
+  }
 
   //TODO: checkIn/Out has been tested using hard-coded data;
   //Implement functionality to get data from within table.
@@ -290,8 +333,7 @@ class App extends Component {
           name,
           dateIn,
           dateOut,
-          quantity,
-          userOut
+          quantity
         }
       }
     }
@@ -311,8 +353,7 @@ class App extends Component {
           name,
           dateIn,
           dateOut,
-          quantity,
-          userOut
+          quantity
         }
       }
     }
@@ -344,8 +385,67 @@ class App extends Component {
           error => {console.log(error); console.log(CREATE_ITEM)});
   }
 
-  deleteItem(){
-    console.log("Implement me!");
+  deleteItem(name){
+    let DELETE_ITEM = `
+      mutation{
+        deleteItem(name: "${name}"){
+          items{
+            id,
+            name,
+            dateIn,
+            dateOut,
+            quantity
+          }
+        }
+      }
+    `;
+    axiosGraphQL
+    .post('', { query: DELETE_ITEM })
+    .then(results => {this.setState({results: results.data.data.deleteItem.items})},
+          error => {console.log(error)});
+  }
+
+  requestItem(itemName, userName, email, studentId, quantity){
+    let REQUEST_ITEM = `
+      mutation{
+        checkOutItem(name: "${itemName}", email: "${email}", studentId: "${studentId}", requestedBy: "${userName}", quantity: ${quantity}){
+          items{
+            id,
+            name,
+            dateIn,
+            dateOut,
+            quantity
+          }
+        }
+      }
+    `
+    console.log(REQUEST_ITEM)
+    axiosGraphQL
+    .post('', { query: REQUEST_ITEM })
+    .then(results => {this.setState({results: results.data.data.checkOutItem.items})},
+          error => {console.log(error)});
+  }
+
+  acceptOrder(userRequestedId, itemName){
+    let ACCEPT_ORDER = `
+      mutation{
+        acceptCheckoutRequest(userRequestedId: ${userRequestedId}, userAcceptedName: "Chris", userAcceptedEmail:"Chris@mail", itemId:${itemName}){
+          transactions{
+            id,
+            dateRequested,
+            userRequestedId,
+            userAccepted,
+            accepted,
+            itemId
+          }
+        }
+      }
+    `
+    console.log(ACCEPT_ORDER);
+    axiosGraphQL
+    .post('', { query: ACCEPT_ORDER })
+    .then(results => {this.setState({results: results.data.data.checkOutItem.items})},
+          error => {console.log(error)});
   }
 
   logIn(){
@@ -355,7 +455,6 @@ class App extends Component {
   render() {
     return (
       <div className="App">
-
         <header className="App-header">
             <div className="logo">
               <img src={logo} className="App-logo" alt="logo" />
@@ -367,9 +466,41 @@ class App extends Component {
         </header>
         <div className="container">
           <h1>Available Items</h1>
-          <RentalTable results={this.state.results}/>
+          <RentalTable results={this.state.results} deleteItem={this.deleteItem} requestItem={this.requestItem}/>
           <div className="form">
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
+          </div>
+          <br></br>
+          <h1>Transactions</h1>
+          <div className="transactions">
+          <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell align="true">User Requesting Item</TableCell>
+              <TableCell align="true">Item Requested</TableCell>
+              <TableCell align="true">Date Requested</TableCell>
+              <TableCell align="true">Quantity Requested</TableCell>
+              <TableCell align="true">Order Accepted?</TableCell>
+              <TableCell align="true">User Who Accepted The Order</TableCell>
+              <TableCell align="true">Date Accepted</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {this.state.transactions.map((row, index) => {
+              return (
+                <TableRow key={index} onClick={() => this.acceptOrder(row.userRequestedId, row.itemId)}>
+                  <TableCell align="true">{row.userRequestedId}</TableCell>
+                  <TableCell align="true">{row.itemId}</TableCell>
+                  <TableCell align="true">{row.dateRequested}</TableCell>
+                  <TableCell align="true">{row.requestedQuantity}</TableCell>
+                  <TableCell align="true">{row.accepted ? "Yes" : "No"}</TableCell>
+                  <TableCell align="true">{row.userAccepted}</TableCell>
+                  <TableCell align="true">{row.dateAccepted}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+          </Table>
           </div>
         </div>
       </div>
