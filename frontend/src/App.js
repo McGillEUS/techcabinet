@@ -57,17 +57,29 @@ const axiosGraphQL = axios.create({
   }
 });
 
-
-// TODO: Everything below should go in a separate file!
-
+/*
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+* TODO: Everything below should go in a separate file!
+*/
 class RequestDialog extends React.Component{
+  state = {
+    name: '',
+    email: '',
+    studentid: '',
+  };
+
+  handleChange = name => event => {
+    this.setState({
+      [name]: event.target.value,
+    });
+  };
   render(){
     return(
-      <Dialog open={true} aria-labelledby="form-dialog-title">
+      <Dialog open={this.props.visible} aria-labelledby="form-dialog-title">
       <DialogTitle id="form-dialog-title">Check out</DialogTitle>
       <DialogContent>
         <DialogContentText>
-          You are checking out ...
+          You are checking out: "{this.props.item}"
         </DialogContentText>
         <TextField
           autoFocus
@@ -76,6 +88,7 @@ class RequestDialog extends React.Component{
           label="Email Address"
           type="email"
           fullWidth
+          onChange={this.handleChange('email')}
         />
         <TextField
           autoFocus
@@ -84,6 +97,7 @@ class RequestDialog extends React.Component{
           label="Full Name"
           type="name"
           fullWidth
+          onChange={this.handleChange('name')}
         />
         <TextField
           autoFocus
@@ -92,13 +106,14 @@ class RequestDialog extends React.Component{
           label="Student ID"
           type="id"
           fullWidth
+          onChange={this.handleChange('studentid')}
         />
       </DialogContent>
       <DialogActions>
-        <Button color="primary">
+        <Button onClick={this.props.closeDialogAction} color="primary">
           Cancel
         </Button>
-        <Button color="primary">
+        <Button onClick={() => {this.props.submitDialogAction(this.state.name,this.state.email,this.state.studentid); this.setState({name: '', email: '', studentid: ''})}} color="primary">
           Submit
         </Button>
       </DialogActions>
@@ -108,15 +123,35 @@ class RequestDialog extends React.Component{
 }
 
 class SimpleTable extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      dialogVisible: false,
+      item: ""
+    };
+    this.closeDialog = this.closeDialog.bind(this)
+    this.submitDialog = this.submitDialog.bind(this)
+  }
 
   handleClick(name){
-    console.log(name);
+    this.setState({dialogVisible: true, item: name})
+  }
+
+  closeDialog(){
+    this.setState({dialogVisible: false})
+  }
+
+  submitDialog(user, email, studentID){
+    console.log(user);
+    console.log(email);
+    console.log(studentID);
+    this.setState({dialogVisible: false})  
   }
 
   render(){
     return (
       <Paper className={this.props.classes.root}>
-        <RequestDialog/>
+        <RequestDialog visible={this.state.dialogVisible} item={this.state.item} closeDialogAction={this.closeDialog} submitDialogAction={this.submitDialog}/>
         <Table className={this.props.classes.table}>
           <TableHead>
             <TableRow>
@@ -190,7 +225,10 @@ class SimpleTextField extends React.Component {
     );
   }
 }
-
+/*
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+* TODO: Everything above should go in a separate file!
+*/
 
 SimpleTextField.propTypes = {
   classes: PropTypes.object.isRequired,
