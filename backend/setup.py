@@ -5,6 +5,7 @@ from utils import db
 
 """
 This simple script takes care of the MySQL set-up.
+TODO: Replace this with SQLAlchemy to allow easy migrations.
 """
 engine = create_engine("mysql://localhost/mysql")
 
