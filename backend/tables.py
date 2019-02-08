@@ -21,8 +21,10 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256))
     email = db.Column(db.String(256))
+    password = db.Column(db.String(256), nullable=False)
     student_id = db.Column(db.String(256))
     date_created = db.Column(db.DateTime)
+    admin = db.Column(db.Boolean)
     transactions = db.relationship("Transaction", backref="users", lazy=True)
 
     def __repr__(self):

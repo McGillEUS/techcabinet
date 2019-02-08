@@ -2,8 +2,8 @@ from datetime import datetime
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField
 from tables import Item, Transaction, User
-
-from utils import db
+import bcrypt
+from utils import db, encode_auth_token, decode_auth_token
 
 
 class ItemObject(SQLAlchemyObjectType):
@@ -225,6 +225,51 @@ class CheckInItem(graphene.Mutation):
         items = Item.query.all()
         return CheckInItem(items)
 
+class RegisterUser(graphene.Mutation):
+    """
+    Registers user to database
+    """
+    class Arguments:
+        username = graphene.String(required=True)
+        email = graphene.String(required=True)
+        password = graphene.String(required=True)
+        student_id = graphene.String(required=True)
+
+    auth_token = graphene.Field(graphene.String)
+
+    def mutate(self, _, username, email, password, student_id):
+        user = User.query.filter_by(name=username, email=email, student_id=student_id).first()
+        if user:
+            raise Exception("User already exists!")
+        encryped_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        user = User(name=username, email=email, password=encryped_password, student_id=student_id)
+        db.session.add(user)
+        db.session.commit()
+        auth_token = encode_auth_token(user.id)
+        return RegisterUser(auth_token.decode())
+
+class LogInUser(graphene.Mutation):
+    """
+    Logs in user
+    """
+    class Arguments:
+        username = graphene.String(required=True)
+        password = graphene.String(required=True)
+
+    auth_token = graphene.Field(graphene.String)
+
+    def mutate(self, _, username, password):
+        user = User.query.filter_by(name=username).first()
+        if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
+            auth_token = encode_auth_token(user.id)
+            if auth_token:
+                return LogInUser(auth_token.decode())
+            else:
+                raise Exception("Couldn't provide a token, please try again...")
+        else:
+            raise Exception("Failed to authenticate user.")
+
+
 class Mutation(graphene.ObjectType):
     """
     Defines all available mutations.
@@ -237,3 +282,5 @@ class Mutation(graphene.ObjectType):
     check_in_item = CheckInItem.Field()
     accept_checkout_request = AcceptCheckoutRequest.Field()
     show_transactions = ShowTransactions.Field()
+    register_user = RegisterUser.Field()
+    login_user = LogInUser.Field()
