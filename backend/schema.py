@@ -49,15 +49,16 @@ class CreateItem(graphene.Mutation):
     auth_token: Authentication token
     """
     class Arguments:
-        name = graphene.String(required=True)
+        username = graphene.String(required=True)
+        item_name = graphene.String(required=True)
         quantity = graphene.Int(required=True)
         auth_token = graphene.String(required=True)
 
     items = graphene.List(ItemObject)
 
-    def mutate(self, _, name, quantity, auth_token):
-        item = Item.query.filter_by(name=name).first()
-
+    def mutate(self, _, username, item_name, quantity, auth_token):
+        item = Item.query.filter_by(name=item_name).first()
+        user = User.query.filter_by(name=username).first()
         # Check if the item already exists
         if item:
             raise Exception("Already found one of this item...")
@@ -66,7 +67,7 @@ class CreateItem(graphene.Mutation):
         if not validate_authentication(user, auth_token, admin=True):
             raise Exception(err_auth)
 
-        item = Item(name=name, quantity=quantity, date_in=datetime.now())
+        item = Item(name=item_name, quantity=quantity, date_in=datetime.now())
         db.session.add(item)
         db.session.commit()
         items = Item.query.all()
@@ -450,12 +451,14 @@ class ValidateToken(graphene.Mutation):
         auth_token = graphene.String(required=True)
         username = graphene.String(required=True)
 
-    valid = graphene.Field(graphene.Boolean)
+    valid = graphene.Field(graphene.Int)
 
     def mutate(self, _, auth_token, username):
         decoded_token_id = decode_auth_token(auth_token)
         user = User.query.filter_by(name=username).first()
-        is_valid = validate_authentication(user, auth_token)
+        is_valid = 1 if validate_authentication(user, auth_token) else 0
+        if is_valid == 1:
+            is_valid = 2 if validate_authentication(user, auth_token, admin=True) else is_valid
         return ValidateToken(is_valid)
 
 
