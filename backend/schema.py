@@ -119,7 +119,7 @@ class ShowTransactions(graphene.Mutation):
     def mutate(self, _, username, auth_token):
         user = User.query.filter_by(name=username).first()
         transactions = []
-        if user and user.id = decode_auth_token(auth_token):
+        if user and user.id == decode_auth_token(auth_token):
             if user.admin:
                 transactions = Transaction.query.all()
             else:
@@ -145,25 +145,27 @@ class CheckOutItem(graphene.Mutation):
     """
     class Arguments:
         requested_by = graphene.String(required=True)
-        email = graphene.String(required=True)
-        student_id = graphene.String(required=True)
         quantity = graphene.Int(required=True)
         item_name = graphene.String(required=True)
-        auth_token = graphene.String()
+        auth_token = graphene.String(required=False)
+        email = graphene.String()
+        student_id = graphene.String()
         password = graphene.String()
 
     items = graphene.List(ItemObject)
 
-    def mutate(self, _, requested_by, email, student_id, quantity, password, item_name):
+    def mutate(self, _, requested_by, quantity, item_name, auth_token, email, student_id, password):
         # Verify that the quantity the user wishes to check out is valid
         if quantity < 0:
             raise Exception("Positive quantities only.")
 
         # If no account exists, create one, else authenticate the user.
-        user = User.query.filter_by(name=requested_by, email=email, student_id=student_id).first()
+        user = User.query.filter_by(name=requested_by).first()
         if not user:
             if not password:
                 raise Exception("You do not have an account, so you should enter a password to create one.")
+            if not email or not student_id:
+                raise Exception("To create an account, please provide an e-mail and student ID.")
             user = User(name=requested_by, email=email, student_id=student_id, password=password)
             db.session.add(user)
         else:
@@ -250,7 +252,7 @@ class CheckInItem(graphene.Mutation):
     auth_token: Authentication token associated with the administrator user
     """
     class Arguments:
-        item_id = graphene.String(required=True)
+        item_id = graphene.Int(required=True)
         admin_name = graphene.String(required=True)
         quantity = graphene.Int(required=True)
         auth_token = graphene.String(required=True)
@@ -268,7 +270,7 @@ class CheckInItem(graphene.Mutation):
             raise Exception(err_auth)
 
         # Check the item back in
-        item = Item.query.filter_by(name=name).first()
+        item = Item.query.filter_by(id=item_id).first()
         item.user_out = None
         item.date_out = None
         item.date_in = datetime.now()
