@@ -37,7 +37,9 @@ class App extends Component {
     super(props);
     this.state = {
       results: [],
-      transactions: []
+      transactions: [],
+      validToken: false,
+      username: ""
     };
     this.checkOutItem = this.checkOutItem.bind(this);
     this.checkInItem = this.checkInItem.bind(this);
@@ -45,11 +47,12 @@ class App extends Component {
     this.deleteItem = this.deleteItem.bind(this);
     this.requestItem = this.requestItem.bind(this);
     this.acceptOrder = this.acceptOrder.bind(this);
+    this.logIn = this.logIn.bind(this);
   }
 
-  componentDidMount() {
+  componentWillMount() {
     this.getAllItems();
-    this.getAllTransactions();
+    this.verifyAuthentication();
   }
 
   //TODO: `GET` should be handled by `Query` not `Mutation`...
@@ -59,6 +62,28 @@ class App extends Component {
       .then(results => {this.setState({results: results.data.data.showItems.items})},
             error => {console.log(error)});
   };
+
+  verifyAuthentication(){
+    let authToken = localStorage.getItem("authToken");
+    let username = localStorage.getItem("username");
+
+    let VALIDATE_TOKEN = `
+    mutation{
+      validateToken(username: "${username}", token:"${authToken}"){
+        valid
+      }
+    }
+    `
+    this.setState({ username: username });
+    axiosGraphQL
+    .post('', { query: VALIDATE_TOKEN })
+    .then(result => {this.setState({validToken: result.data.data.validateToken.valid})},
+          error => {console.log(error)});
+
+    if (this.state.validToken){
+      this.getAllTransactions();
+    }
+  }
 
   getAllTransactions(){
     axiosGraphQL
@@ -109,8 +134,6 @@ class App extends Component {
   }
 
   createItem(name, quantity){
-    console.log(name);
-    console.log(quantity);
     let CREATE_ITEM = `
     mutation{
       createItem(name: "${name}", quantity: ${quantity}){
@@ -163,7 +186,6 @@ class App extends Component {
         }
       }
     `
-    console.log(REQUEST_ITEM)
     axiosGraphQL
     .post('', { query: REQUEST_ITEM })
     .then(results => {this.setState({results: results.data.data.checkOutItem.items})},
@@ -173,7 +195,7 @@ class App extends Component {
   acceptOrder(userRequestedId, itemName){
     let ACCEPT_ORDER = `
       mutation{
-        acceptCheckoutRequest(userRequestedId: ${userRequestedId}, userAcceptedName: "Chris", userAcceptedEmail:"Chris@mail", itemId:${itemName}){
+        acceptCheckoutRequest(userRequestedId: ${userRequestedId}, userAcceptedName: "${this.state.username}", userAcceptedEmail:"Chris@mail", itemId:${itemName}){
           transactions{
             id,
             dateRequested,
@@ -185,17 +207,36 @@ class App extends Component {
         }
       }
     `
-    console.log(ACCEPT_ORDER);
     axiosGraphQL
     .post('', { query: ACCEPT_ORDER })
     .then(results => {this.setState({transactions: results.data.data.acceptCheckoutRequest.transactions})},
           error => {console.log(error)});
   }
 
-  logIn(){
-    console.log("Implement me!");
+  logIn(username, password){
+    let LOGIN = `
+    mutation{
+      loginUser(username:"${username}", password:"${password}"){
+        authToken
+      }
+    }
+    `
+    axiosGraphQL
+    .post('', { query: LOGIN })
+    .then(results => {this.handleLogInInfo(results, username)},
+          error => {console.log(error)});
   }
 
+  handleLogInInfo(results, username){
+    if (results.data.data.loginUser != null){
+      localStorage.setItem("authToken", results.data.data.loginUser.authToken);
+      localStorage.setItem("username", username);
+      window.location.reload();
+    } else {
+      console.log("error");
+      console.log(results);
+    }
+  }
   //TODO: Hardcoded table should be placed somewhere else...
   render() {
     return (
@@ -205,8 +246,11 @@ class App extends Component {
               <img src={logo} className="App-logo" alt="logo" />
               <p>Tech Cabinet Rental Platform</p>
             </div>
-            <div className="login">
-              <SimpleStyledTextField textFieldLabel1="username" textFieldLabel2="password" label="Log In" onClickEvent={this.logIn}/>
+            <div className="login" style={{display: this.state.validToken ? "none" : "block" }}>
+              <SimpleStyledTextField textFieldLabel1="username" textFieldLabel2="password" label="Log In" type="password" onClickEvent={this.logIn}/>
+            </div>
+            <div className="welcome" style={{display: this.state.validToken ? "block" : "none" }}>
+            <p> Welcome, {this.state.username}! </p>
             </div>
         </header>
         <div className="container">
@@ -216,8 +260,8 @@ class App extends Component {
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
           </div>
           <br></br>
+          <div className="transactions" style={{display: this.state.validToken ? "block" : "none" }}>
           <h1>Transactions</h1>
-          <div className="transactions">
           <Table>
           <TableHead>
             <TableRow>

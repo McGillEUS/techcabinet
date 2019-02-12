@@ -269,6 +269,23 @@ class LogInUser(graphene.Mutation):
         else:
             raise Exception("Failed to authenticate user.")
 
+class ValidateToken(graphene.Mutation):
+    """
+    Vaildates token
+    """
+    class Arguments:
+        token = graphene.String(required=True)
+        username = graphene.String(required=True)
+
+    valid = graphene.Field(graphene.Boolean)
+
+    def mutate(self, _, token, username):
+        decoded_token_id = decode_auth_token(token)
+        user = User.query.filter_by(name=username).first()
+        is_valid = user and decoded_token_id == user.id
+        return ValidateToken(is_valid)
+
+
 
 class Mutation(graphene.ObjectType):
     """
@@ -284,3 +301,4 @@ class Mutation(graphene.ObjectType):
     show_transactions = ShowTransactions.Field()
     register_user = RegisterUser.Field()
     login_user = LogInUser.Field()
+    validate_token = ValidateToken.Field()
