@@ -21,6 +21,8 @@ app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "")
 
 db = SQLAlchemy(app)
 
+token_expiry =  int(os.environ.get("TOKEN_EXPIRY", "180"))
+
 
 """
 Utils related to authentication
@@ -34,7 +36,7 @@ def encode_auth_token(user_id):
     """
     try:
         payload = {
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(days=0, seconds=180),
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(days=0, seconds=token_expiry),
             'iat': datetime.datetime.utcnow(),
             'id': user_id
         }

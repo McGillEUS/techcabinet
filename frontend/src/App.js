@@ -231,7 +231,7 @@ class App extends Component {
     if (results.data.data.loginUser != null){
       localStorage.setItem("authToken", results.data.data.loginUser.authToken);
       localStorage.setItem("username", username);
-      window.location.reload();
+      this.verifyAuthentication();
     } else {
       console.log("error");
       console.log(results);
