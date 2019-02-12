@@ -39,9 +39,10 @@ class App extends Component {
     this.state = {
       results: [],
       transactions: [],
-      validToken: false,
+      tokenValidity: 0,
       authToken: "",
-      username: ""
+      username: "",
+      loading: true
     };
     this.checkOutItem = this.checkOutItem.bind(this);
     this.checkInItem = this.checkInItem.bind(this);
@@ -52,7 +53,7 @@ class App extends Component {
     this.logIn = this.logIn.bind(this);
   }
 
-  componentWillMount() {
+  componentDidMount() {
     this.getAllItems();
     this.verifyAuthentication();
   }
@@ -128,10 +129,10 @@ class App extends Component {
             error => {console.log(error); console.log(CHECKIN_ITEM)});
   }
 
-  createItem(name, quantity){
+  createItem(itemName, quantity){
     let CREATE_ITEM = `
     mutation{
-      createItem(name: "${name}", quantity: ${quantity}){
+      createItem(authToken: "${this.state.authToken}", username: "${this.state.username}", itemName: "${itemName}", quantity: ${quantity}){
         items{
           id,
           name,
@@ -222,15 +223,21 @@ class App extends Component {
     axiosGraphQL
     .post('', { query: VALIDATE_TOKEN })
     .then(result => {this.updateAuthenticatedState(authToken, username, result.data.data.validateToken.valid)},
-          error => {console.log(VALIDATE_TOKEN); console.log(error)});
+          error => {console.log(VALIDATE_TOKEN); console.log(error); this.setState({loading: false});});
   }
 
-  updateAuthenticatedState(authToken, username, is_valid){
-    // The local state should only contain valid tokens
-    if (is_valid){
-      this.setState({authToken: authToken, username: username, validToken: is_valid});
+  updateAuthenticatedState(authToken, username, validity_level){
+    /* The local state should only contain valid tokens.
+     * Tokens have three levels of validity:
+     * Level 0: Unauthenticated user
+     * Level 1: Authenticated user
+     * Level 2: Authenticated administrator
+     */
+    if (validity_level > 0){
+      this.setState({authToken: authToken, username: username, tokenValidity: validity_level});
       this.getAllTransactions();
     }
+    this.setState({loading: false});
   }
 
   logIn(username, password){
@@ -257,7 +264,8 @@ class App extends Component {
     `
     axiosGraphQL
     .post('', { query: LOGOUT })
-    .then(result => {result.data.data.logoutUser.status == "success" ? this.setState({validToken: false}) : console.log("Failed to log out...")},
+    .then(result => {result.data.data.logoutUser.status === "success" ? this.setState({tokenValidity: 0}) : console.log("Failed to log out...");
+                     window.location.reload();},
           error => {console.log(LOGOUT); console.log(error)});
   }
 
@@ -265,15 +273,17 @@ class App extends Component {
     if (results.data.data.loginUser != null){
       localStorage.setItem("authToken", results.data.data.loginUser.authToken);
       localStorage.setItem("username", username);
-      this.verifyAuthentication();
+      window.location.reload();
     } else {
       console.log("error");
       console.log(results);
     }
   }
 
-  //TODO: Hardcoded table should be placed somewhere else...
   render() {
+    if(this.state.loading){
+      return "Loading...";
+    }
     return (
       <div className="App">
         <header className="App-header">
@@ -281,10 +291,10 @@ class App extends Component {
               <img src={logo} className="App-logo" alt="logo" />
               <p>Tech Cabinet Rental Platform</p>
             </div>
-            <div className="login" style={{display: this.state.validToken ? "none" : "block" }}>
+            <div className="login" style={{display: this.state.tokenValidity > 0 ? "none" : "block" }}>
               <SimpleStyledTextField textFieldLabel1="username" textFieldLabel2="password" label="Log In" type="password" onClickEvent={this.logIn}/>
             </div>
-            <div className="welcome" style={{display: this.state.validToken ? "block" : "none" }}>
+            <div className="welcome" style={{display: this.state.tokenValidity > 0 ? "block" : "none" }}>
             <p> Welcome, {this.state.username}! </p>
             <Button variant="contained" onClick={(e) => this.logOut()}>
               Log Out
@@ -293,13 +303,14 @@ class App extends Component {
         </header>
         <div className="container">
           <h1>Available Items</h1>
-          <RentalTable results={this.state.results} deleteItem={this.deleteItem} requestItem={this.requestItem}/>
-          <div className="form">
+          <RentalTable tokenValidity={this.state.tokenValidity} results={this.state.results} deleteItem={this.deleteItem} requestItem={this.requestItem}/>
+          <div className="form" style={{display: this.state.tokenValidity > 1 ? "block" : "none" }}>
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
           </div>
           <br></br>
-          <div className="transactions" style={{display: this.state.validToken ? "block" : "none" }}>
-          <h1>Transactions</h1>
+          <div className="transactions" style={{display: this.state.tokenValidity > 0 ? "block" : "none" }}>
+          <h1 style={{display: this.state.tokenValidity === 1 ? "block" : "none" }}> Your Requests </h1>
+          <h1 style={{display: this.state.tokenValidity === 2 ? "block" : "none" }}> Request History </h1>
           <Table>
           <TableHead>
             <TableRow>

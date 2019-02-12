@@ -13,6 +13,89 @@ import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 
+
+class LoggedOutDialog extends React.Component{
+  handleChange = name => event => {
+    this.setState({
+      [name]: event.target.value,
+    });
+  };
+
+  render(){
+    return(
+      <DialogContent>
+        <DialogContentText>
+          You are checking out: "{this.props.item}"
+        </DialogContentText>
+        <TextField
+          autoFocus
+          margin="dense"
+          id="email"
+          label="Email Address"
+          type="email"
+          fullWidth
+          onChange={this.handleChange('email')}
+        />
+        <TextField
+          autoFocus
+          margin="dense"
+          id="name"
+          label="Full Name"
+          type="name"
+          fullWidth
+          onChange={this.handleChange('name')}
+        />
+        <TextField
+          autoFocus
+          margin="dense"
+          id="id"
+          label="Student ID"
+          type="id"
+          fullWidth
+          onChange={this.handleChange('studentid')}
+        />
+        <TextField
+          autoFocus
+          margin="dense"
+          id="id"
+          label="Quantity"
+          type="id"
+          fullWidth
+          onChange={this.handleChange('quantity')}
+        />
+      </DialogContent>
+    )
+  }
+}
+
+class LoggedInDialog extends React.Component{
+  handleChange = name => event => {
+    this.setState({
+      [name]: event.target.value,
+    });
+  };
+
+  render(){
+    return(
+      <DialogContent>
+        <DialogContentText>
+          You are checking out: "{this.props.item}"
+        </DialogContentText>
+        <TextField
+          autoFocus
+          margin="dense"
+          id="id"
+          label="Quantity"
+          type="id"
+          fullWidth
+          onChange={this.handleChange('quantity')}
+        />
+      </DialogContent>
+    )
+  }
+}
+
+
 class RequestDialog extends React.Component{
     state = {
       name: '',
@@ -21,57 +104,14 @@ class RequestDialog extends React.Component{
       quantity: ''
     };
 
-    handleChange = name => event => {
-      this.setState({
-        [name]: event.target.value,
-      });
-    };
+    dialog = (item) => this.props.tokenValidity > 0 ? <LoggedInDialog item={item}/> : <LoggedOutDialog item={item}/>;
+    deleteButton = this.props.tokenValidity > 1 ? <Button onClick={this.props.deleteDialogAction} color="primary"> Delete </Button> : null;
 
     render(){
       return(
         <Dialog open={this.props.visible} aria-labelledby="form-dialog-title">
         <DialogTitle id="form-dialog-title">Check out</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            You are checking out: "{this.props.item}"
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            id="email"
-            label="Email Address"
-            type="email"
-            fullWidth
-            onChange={this.handleChange('email')}
-          />
-          <TextField
-            autoFocus
-            margin="dense"
-            id="name"
-            label="Full Name"
-            type="name"
-            fullWidth
-            onChange={this.handleChange('name')}
-          />
-          <TextField
-            autoFocus
-            margin="dense"
-            id="id"
-            label="Student ID"
-            type="id"
-            fullWidth
-            onChange={this.handleChange('studentid')}
-          />
-          <TextField
-            autoFocus
-            margin="dense"
-            id="id"
-            label="Quantity"
-            type="id"
-            fullWidth
-            onChange={this.handleChange('quantity')}
-          />
-        </DialogContent>
+        {this.dialog(this.props.item)}
         <DialogActions>
           <Button onClick={this.props.closeDialogAction} color="primary">
             Cancel
@@ -79,9 +119,7 @@ class RequestDialog extends React.Component{
           <Button onClick={() => {this.props.submitDialogAction(this.state.name,this.state.email,this.state.studentid, this.state.quantity); this.setState({name: '', email: '', studentid: ''})}} color="primary">
             Submit
           </Button>
-          <Button onClick={this.props.deleteDialogAction} color="primary">
-            Delete
-          </Button>
+          {this.deleteButton}
         </DialogActions>
       </Dialog>
       )
@@ -121,7 +159,8 @@ class SimpleTable extends React.Component {
     render(){
       return (
         <Paper className={this.props.classes.root}>
-          <RequestDialog visible={this.state.dialogVisible} item={this.state.item} closeDialogAction={this.closeDialog} submitDialogAction={this.submitDialog} deleteDialogAction={this.deleteDialog}/>
+          <RequestDialog tokenValidity={this.props.tokenValidity} visible={this.state.dialogVisible} item={this.state.item}
+                         closeDialogAction={this.closeDialog} submitDialogAction={this.submitDialog} deleteDialogAction={this.deleteDialog}/>
           <Table className={this.props.classes.table}>
             <TableHead>
               <TableRow>
@@ -187,7 +226,7 @@ class SimpleTextField extends React.Component {
             variant="filled"
             type={this.props.type}
           />
-          <Button variant="contained" className={this.props.classes.button} onClick={(e) => this.props.onClickEvent(this.state.textFieldLabel1, this.state.textFieldLabel2)}>
+          <Button variant="contained" className={this.props.classes.button} onClick={ (e) => this.props.onClickEvent(this.state.textFieldLabel1, this.state.textFieldLabel2) }>
             {this.props.label}
           </Button>
         </form>
