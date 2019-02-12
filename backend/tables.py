@@ -26,6 +26,7 @@ class User(db.Model):
     date_created = db.Column(db.DateTime)
     admin = db.Column(db.Boolean)
     transactions = db.relationship("Transaction", backref="users", lazy=True)
+    blacklist = db.relationship("Blacklist", backref="users", lazy=True)
 
     def __repr__(self):
         return '<User %r>' % self.name
@@ -45,3 +46,12 @@ class Transaction(db.Model):
 
     def __repr__(self):
         return '<Transaction %r>' % self.name
+
+
+class Blacklist(db.Model):
+    __tablename__ = 'blacklist'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.ForeignKey('users.id'))
+    blacklisted_token = db.Column(db.String(256))
+    blacklisted_at = db.Column(db.DateTime)

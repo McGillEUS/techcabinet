@@ -28,6 +28,24 @@ mutation{
 }
 ```
 
+LOGOUT:
+```
+mutation{
+  logoutUser(authToken: "potato"){
+    status
+  }
+}
+```
+
+CHANGE PASSWORD:
+```
+mutation{
+  changePassword(username:"potato", password: "potato2", authToken: "potato"){
+    authToken
+  }
+}
+```
+
 VALIDATE:
 ```
 mutation{
