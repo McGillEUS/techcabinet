@@ -3,6 +3,7 @@ import axios from 'axios';
 import logo from './logo.svg';
 import PropTypes from 'prop-types';
 
+import Button from '@material-ui/core/Button';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -12,7 +13,7 @@ import { withStyles } from '@material-ui/core/styles';
 
 import { SimpleTable, SimpleTextField } from './components'
 import { tableStyles, textBoxStyles } from './styles'
-import { GET_ITEMS, GET_TRANSACTIONS } from './requests'
+import { GET_ITEMS } from './requests'
 
 import './App.css';
 
@@ -39,6 +40,7 @@ class App extends Component {
       results: [],
       transactions: [],
       validToken: false,
+      authToken: "",
       username: ""
     };
     this.checkOutItem = this.checkOutItem.bind(this);
@@ -55,7 +57,6 @@ class App extends Component {
     this.verifyAuthentication();
   }
 
-  //TODO: `GET` should be handled by `Query` not `Mutation`...
   getAllItems() {
     axiosGraphQL
       .post('', { query: GET_ITEMS })
@@ -63,29 +64,23 @@ class App extends Component {
             error => {console.log(error)});
   };
 
-  verifyAuthentication(){
-    let authToken = localStorage.getItem("authToken");
-    let username = localStorage.getItem("username");
-
-    let VALIDATE_TOKEN = `
+  getAllTransactions(){
+    let GET_TRANSACTIONS = `
     mutation{
-      validateToken(username: "${username}", token:"${authToken}"){
-        valid
+    showTransactions(username: "${this.state.username}", authToken: "${this.state.authToken}"){
+      transactions{
+        id,
+        accepted,
+        userAccepted,
+        userRequestedId,
+        requestedQuantity,
+        dateAccepted,
+        dateRequested,
+        itemId
       }
     }
-    `
-    this.setState({ username: username });
-    axiosGraphQL
-    .post('', { query: VALIDATE_TOKEN })
-    .then(result => {this.setState({validToken: result.data.data.validateToken.valid})},
-          error => {console.log(error)});
-
-    if (this.state.validToken){
-      this.getAllTransactions();
-    }
   }
-
-  getAllTransactions(){
+  `;
     axiosGraphQL
     .post('', { query: GET_TRANSACTIONS })
     .then(results => {this.setState({transactions: results.data.data.showTransactions.transactions})},
@@ -213,6 +208,31 @@ class App extends Component {
           error => {console.log(error)});
   }
 
+  verifyAuthentication(){
+    let authToken = localStorage.getItem("authToken");
+    let username = localStorage.getItem("username");
+
+    let VALIDATE_TOKEN = `
+    mutation{
+      validateToken(username: "${username}", authToken:"${authToken}"){
+        valid
+      }
+    }
+    `
+    axiosGraphQL
+    .post('', { query: VALIDATE_TOKEN })
+    .then(result => {this.updateAuthenticatedState(authToken, username, result.data.data.validateToken.valid)},
+          error => {console.log(VALIDATE_TOKEN); console.log(error)});
+  }
+
+  updateAuthenticatedState(authToken, username, is_valid){
+    // The local state should only contain valid tokens
+    if (is_valid){
+      this.setState({authToken: authToken, username: username, validToken: is_valid});
+      this.getAllTransactions();
+    }
+  }
+
   logIn(username, password){
     let LOGIN = `
     mutation{
@@ -224,7 +244,21 @@ class App extends Component {
     axiosGraphQL
     .post('', { query: LOGIN })
     .then(results => {this.handleLogInInfo(results, username)},
-          error => {console.log(error)});
+          error => {console.log(LOGIN); console.log(error)});
+  }
+
+  logOut(){
+    let LOGOUT = `
+    mutation{
+      logoutUser(authToken:"${this.state.authToken}"){
+        status
+      }
+    }
+    `
+    axiosGraphQL
+    .post('', { query: LOGOUT })
+    .then(result => {result.data.data.logoutUser.status == "success" ? this.setState({validToken: false}) : console.log("Failed to log out...")},
+          error => {console.log(LOGOUT); console.log(error)});
   }
 
   handleLogInInfo(results, username){
@@ -237,6 +271,7 @@ class App extends Component {
       console.log(results);
     }
   }
+
   //TODO: Hardcoded table should be placed somewhere else...
   render() {
     return (
@@ -251,6 +286,9 @@ class App extends Component {
             </div>
             <div className="welcome" style={{display: this.state.validToken ? "block" : "none" }}>
             <p> Welcome, {this.state.username}! </p>
+            <Button variant="contained" onClick={(e) => this.logOut()}>
+              Log Out
+            </Button>
             </div>
         </header>
         <div className="container">

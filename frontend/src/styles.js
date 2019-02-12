@@ -16,8 +16,7 @@ const textBoxStyles = theme => ({
     },
     
     button: {
-      display: 'flex',
-      marginLeft: '40%',
+      marginTop: 16,
     },
     
     dense: {

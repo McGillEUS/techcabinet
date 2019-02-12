@@ -185,6 +185,7 @@ class SimpleTextField extends React.Component {
             onChange={this.handleChange('textFieldLabel2')}
             margin="normal"
             variant="filled"
+            type={this.props.type}
           />
           <Button variant="contained" className={this.props.classes.button} onClick={(e) => this.props.onClickEvent(this.state.textFieldLabel1, this.state.textFieldLabel2)}>
             {this.props.label}
