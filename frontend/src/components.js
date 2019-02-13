@@ -31,6 +31,8 @@ class LoggedOutDialog extends React.Component{
           id="email"
           label="Email Address"
           type="email"
+          helperText={this.props.errors['email']}
+          error={this.props.errors['email'].length > 0}
           fullWidth
           onChange={this.props.handleChange('email')}
         />
@@ -40,6 +42,8 @@ class LoggedOutDialog extends React.Component{
           id="name"
           label="Username"
           type="name"
+          helperText={this.props.errors['username']}
+          error={this.props.errors['username'].length > 0}
           fullWidth
           onChange={this.props.handleChange('name')}
         />
@@ -49,6 +53,8 @@ class LoggedOutDialog extends React.Component{
           id="password"
           label="Password"
           type="password"
+          helperText={this.props.errors['password']}
+          error={this.props.errors['password'].length > 0}
           fullWidth
           onChange={this.props.handleChange('password')}
         />
@@ -58,6 +64,8 @@ class LoggedOutDialog extends React.Component{
           id="id"
           label="Student ID"
           type="id"
+          helperText={this.props.errors['student_id']}
+          error={this.props.errors['student_id'].length > 0}
           fullWidth
           onChange={this.props.handleChange('studentid')}
         />
@@ -67,6 +75,8 @@ class LoggedOutDialog extends React.Component{
           id="id"
           label="Quantity"
           type="id"
+          helperText={this.props.errors['quantity']}
+          error={this.props.errors['quantity'].length > 0}
           fullWidth
           onChange={this.props.handleChange('quantity')}
         />
@@ -86,6 +96,8 @@ class LoggedInDialog extends React.Component{
           autoFocus
           margin="dense"
           id="id"
+          helperText={this.props.errors['quantity']}
+          error={this.props.errors['quantity'].length === 0}
           label="Quantity"
           type="id"
           fullWidth
@@ -112,8 +124,10 @@ class RequestDialog extends React.Component{
       });
     };
 
-    dialog = (item) => this.props.tokenValidity > 0 ? <LoggedInDialog item={item} handleChange={this.handleChange}/> : <LoggedOutDialog item={item} handleChange={this.handleChange}/>;
-    deleteButton = this.props.tokenValidity > 1 ? <Button onClick={this.props.deleteDialogAction} color="primary"> Delete </Button> : null;
+    dialog = (item) => this.props.tokenValidity > 0 ? <LoggedInDialog item={item} errors={this.props.errors} handleChange={this.handleChange}/>
+                                                    : <LoggedOutDialog item={item} errors={this.props.errors} handleChange={this.handleChange}/>;
+    deleteButton = this.props.tokenValidity > 1 ? <Button onClick={this.props.deleteDialogAction} color="primary"> Delete </Button>
+                                                : null;
 
     render(){
       return(
@@ -142,7 +156,9 @@ class SimpleTable extends React.Component {
       super(props);
       this.state = {
         dialogVisible: false,
-        item: ""
+        item: "",
+        errors: {'email': '', 'username': '', 'password': '',
+        'student_id': '', 'quantity': ''}
       };
       this.closeDialog = this.closeDialog.bind(this);
       this.submitDialog = this.submitDialog.bind(this);
@@ -156,15 +172,53 @@ class SimpleTable extends React.Component {
     closeDialog(){
       this.setState({dialogVisible: false});
     }
+    
+    validateEmail(email) {
+      // Credit: https://stackoverflow.com/questions/46155/how-to-validate-an-email-address-in-javascript
+      var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+      return re.test(String(email).toLowerCase());
+    }
 
     submitDialog(quantity, username, password, email, studentID){
-      if (this.props.tokenValidity > 0){
-        this.props.requestItem(this.state.item, quantity);
-      } else {
-        this.props.requestItem(this.state.item, quantity, username,
-                               password, email, studentID);
+      let validInput = true;
+      let errors = this.state.errors
+      errors['quantity'] = "";
+      if (quantity <= 0){
+        errors['quantity'] = "Quantity must be greater than zero.";
+        validInput = false;
       }
-      this.setState({dialogVisible: false});
+      if (this.props.tokenValidity > 0 && validInput){
+          this.props.requestItem(this.state.item, quantity);
+      } else {
+        errors['username'] = "";
+        if (!username || username.length <= 0 || username.length > 100){
+          errors['username'] = "You must input a username between 0 and 100 characters.";
+          validInput = false;
+        }
+        errors['password'] = "";
+        if(!password){
+          errors['password'] = "You must input a password.";
+          validInput = false;
+        }
+        errors['email'] = "";
+        if(!email || !this.validateEmail(email)){
+          errors['email'] = "You have inputted an invalid email.";
+          validInput = false;
+        }
+        errors['student_id'] = "";
+        if(!studentID || studentID.length <= 5 || isNaN(studentID)){
+          errors['student_id'] = "Your student ID should be a 6-7 digit number.";
+          validInput = false;
+        }
+        this.setState({errors: errors});
+        if (validInput){
+          this.props.requestItem(this.state.item, quantity, username,
+            password, email, studentID);
+        }
+      }
+      if (validInput){
+        this.setState({dialogVisible: false});
+      }
     }
 
     deleteDialog(){
@@ -176,7 +230,8 @@ class SimpleTable extends React.Component {
       return (
         <Paper className={this.props.classes.root}>
           <RequestDialog tokenValidity={this.props.tokenValidity} visible={this.state.dialogVisible} item={this.state.item}
-                         closeDialogAction={this.closeDialog} submitDialogAction={this.submitDialog} deleteDialogAction={this.deleteDialog}/>
+                         closeDialogAction={this.closeDialog} submitDialogAction={this.submitDialog} deleteDialogAction={this.deleteDialog}
+                         errors={this.state.errors}/>
           <Table className={this.props.classes.table}>
             <TableHead>
               <TableRow>
@@ -227,7 +282,8 @@ class SimpleTextField extends React.Component {
             id="field-1"
             label={this.props.textFieldLabel1}
             className={this.props.classes.textField}
-            value={this.state.username}
+            error={this.props.errors != null && this.props.errors.length > 0}
+            helperText={this.props.errors}
             onChange={this.handleChange('textFieldLabel1')}
             margin="normal"
             variant="filled"
@@ -236,7 +292,7 @@ class SimpleTextField extends React.Component {
             id="field-2"
             label={this.props.textFieldLabel2}
             className={this.props.classes.textField}
-            value={this.state.password}
+            error={this.props.errors != null && this.props.errors.length > 0}
             onChange={this.handleChange('textFieldLabel2')}
             margin="normal"
             variant="filled"

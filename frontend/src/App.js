@@ -42,6 +42,7 @@ class App extends Component {
       tokenValidity: 0,
       authToken: "",
       username: "",
+      authErrors: "",
       loading: true
     };
     this.createItem = this.createItem.bind(this);
@@ -60,7 +61,7 @@ class App extends Component {
   getAllItems() {
     axiosGraphQL
       .post('', { query: GET_ITEMS })
-      .then(results => {this.setState({results: results.data.data.showItems.items}); console.log(results.data.data.showItems.items)},
+      .then(results => {this.setState({results: results.data.data.showItems.items});},
             error => {console.log(error)});
   };
 
@@ -247,7 +248,9 @@ class App extends Component {
     axiosGraphQL
     .post('', { query: LOGIN })
     .then(results => {this.handleLogInInfo(results, username)},
-          error => {console.log(LOGIN); console.log(error)});
+          error => {console.log(LOGIN);
+                    console.log(error);
+                    this.setState({authErrors: "Invalid username or password."})});
   }
 
   logOut(){
@@ -272,6 +275,7 @@ class App extends Component {
       window.location.reload();
     } else {
       console.log("error");
+      this.setState({authErrors: "Invalid username or password."})
       console.log(results);
     }
   }
@@ -288,7 +292,8 @@ class App extends Component {
               <p>Tech Cabinet Rental Platform</p>
             </div>
             <div className="login" style={{display: this.state.tokenValidity > 0 ? "none" : "block" }}>
-              <SimpleStyledTextField textFieldLabel1="username" textFieldLabel2="password" label="Log In" type="password" onClickEvent={this.logIn}/>
+              <SimpleStyledTextField textFieldLabel1="username" textFieldLabel2="password" errors={this.state.authErrors}
+                                     label="Log In" type="password" onClickEvent={this.logIn}/>
             </div>
             <div className="welcome" style={{display: this.state.tokenValidity > 0 ? "block" : "none" }}>
             <p> Welcome, {this.state.username}! </p>
