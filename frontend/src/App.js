@@ -44,12 +44,11 @@ class App extends Component {
       username: "",
       loading: true
     };
-    this.checkOutItem = this.checkOutItem.bind(this);
-    this.checkInItem = this.checkInItem.bind(this);
     this.createItem = this.createItem.bind(this);
     this.deleteItem = this.deleteItem.bind(this);
-    this.requestItem = this.requestItem.bind(this);
-    this.acceptOrder = this.acceptOrder.bind(this);
+    this.checkOutItem = this.checkOutItem.bind(this);
+    this.checkInItem = this.checkInItem.bind(this);
+    this.acceptCheckoutRequest = this.acceptCheckoutRequest.bind(this);
     this.logIn = this.logIn.bind(this);
   }
 
@@ -61,22 +60,25 @@ class App extends Component {
   getAllItems() {
     axiosGraphQL
       .post('', { query: GET_ITEMS })
-      .then(results => {this.setState({results: results.data.data.showItems.items})},
+      .then(results => {this.setState({results: results.data.data.showItems.items}); console.log(results.data.data.showItems.items)},
             error => {console.log(error)});
   };
 
   getAllTransactions(){
     let GET_TRANSACTIONS = `
     mutation{
-    showTransactions(username: "${this.state.username}", authToken: "${this.state.authToken}"){
+    showTransactions(username: "${this.state.username}",
+                     authToken: "${this.state.authToken}"){
       transactions{
         id,
         accepted,
+        returned,
         userAccepted,
         userRequestedId,
         requestedQuantity,
         dateAccepted,
         dateRequested,
+        dateReturned,
         itemId
       }
     }
@@ -84,55 +86,92 @@ class App extends Component {
   `;
     axiosGraphQL
     .post('', { query: GET_TRANSACTIONS })
-    .then(results => {this.setState({transactions: results.data.data.showTransactions.transactions})},
+    .then(results => {this.setState({transactions: results.data.data.showTransactions.transactions}); console.log(results.data.data.showTransactions.transactions)},
           error => {console.log(error)});
   }
 
-  
-  checkOutItem(name, quantity, checkedOutBy) {
+  checkOutItem(itemName, quantity, username, password, email, studentID){
+    username = username || this.state.username;
+    password = password || "";
+    email = email || "";
+    studentID = studentID || "";
+
     let CHECKOUT_ITEM = `
+      mutation{
+        checkOutItem(requestedBy: "${username}", quantity: ${quantity},
+                     authToken: "${this.state.authToken}", itemName:"${itemName}",
+                     email:"${email}", password:"${password}", studentId:"${studentID}"){
+          items{
+            id,
+            name
+          }
+        }
+      }
+    `
+    axiosGraphQL
+    .post('', { query: CHECKOUT_ITEM })
+    .then(results => {this.setState({results: results.data.data.checkOutItem.items}); window.location.reload();},
+          error => {console.log(error); console.log(CHECKOUT_ITEM);});
+  }
+
+  acceptCheckoutRequest(userRequestedId, transactionId, itemId) {
+    let ACCEPT_CHECKOUT_REQUEST = `
     mutation{
-      checkOutItem(name: "${name}", quantity: ${quantity}, checkedOutBy: "${checkedOutBy}"){
-        items{
+      acceptCheckoutRequest(userRequestedId: ${userRequestedId}, transactionId: "${transactionId}",
+                            userAcceptedName: "${this.state.username}", itemId: ${itemId},
+                            authToken: "${this.state.authToken}"){
+        transactions{
           id,
-          name,
-          dateIn,
-          dateOut,
-          quantity
+          accepted,
+          returned,
+          userAccepted,
+          userRequestedId,
+          requestedQuantity,
+          dateAccepted,
+          dateRequested,
+          dateReturned,
+          itemId
         }
       }
     }
   `;
     axiosGraphQL
-      .post('', { query: CHECKOUT_ITEM} )
-      .then(results => {this.setState({results: results.data.data.checkOutItem.items})},
-            error => {console.log(error); console.log(CHECKOUT_ITEM)});
+      .post('', { query: ACCEPT_CHECKOUT_REQUEST} )
+      .then(results => {this.setState({transactions: results.data.data.acceptCheckoutRequest.transactions})},
+            error => {console.log(error); console.log(ACCEPT_CHECKOUT_REQUEST)});
   }
 
-  checkInItem(name, quantity) {
+  checkInItem(itemId, transactionId) {
     let CHECKIN_ITEM = `
     mutation{
-      checkInItem(name: "${name}", quantity: ${quantity}){
-        items{
+      checkInItem(itemId: ${itemId}, transactionId: "${transactionId}",
+                  adminName: "${this.state.username}", authToken: "${this.state.authToken}"){
+        transactions{
           id,
-          name,
-          dateIn,
-          dateOut,
-          quantity
+          accepted,
+          returned,
+          userAccepted,
+          userRequestedId,
+          requestedQuantity,
+          dateAccepted,
+          dateRequested,
+          dateReturned,
+          itemId
         }
       }
     }
   `;
     axiosGraphQL
       .post('', { query: CHECKIN_ITEM} )
-      .then(results => {this.setState({results: results.data.data.checkInItem.items})},
+      .then(results => {this.setState({transactions: results.data.data.checkInItem.transactions})},
             error => {console.log(error); console.log(CHECKIN_ITEM)});
   }
 
   createItem(itemName, quantity){
     let CREATE_ITEM = `
     mutation{
-      createItem(authToken: "${this.state.authToken}", username: "${this.state.username}", itemName: "${itemName}", quantity: ${quantity}){
+      createItem(authToken: "${this.state.authToken}", username: "${this.state.username}",
+                 itemName: "${itemName}", quantity: ${quantity}){
         items{
           id,
           name,
@@ -151,7 +190,8 @@ class App extends Component {
   deleteItem(name){
     let DELETE_ITEM = `
       mutation{
-        deleteItem(name: "${name}"){
+        deleteItem(itemName: "${name}", authToken: "${this.state.authToken}",
+                   username:"${this.state.username}"){
           items{
             id,
             name,
@@ -165,48 +205,7 @@ class App extends Component {
     axiosGraphQL
     .post('', { query: DELETE_ITEM })
     .then(results => {this.setState({results: results.data.data.deleteItem.items})},
-          error => {console.log(error)});
-  }
-
-  requestItem(itemName, userName, email, studentId, quantity){
-    let REQUEST_ITEM = `
-      mutation{
-        checkOutItem(name: "${itemName}", email: "${email}", studentId: "${studentId}", requestedBy: "${userName}", quantity: ${quantity}){
-          items{
-            id,
-            name,
-            dateIn,
-            dateOut,
-            quantity
-          }
-        }
-      }
-    `
-    axiosGraphQL
-    .post('', { query: REQUEST_ITEM })
-    .then(results => {this.setState({results: results.data.data.checkOutItem.items})},
-          error => {console.log(error)});
-  }
-
-  acceptOrder(userRequestedId, itemName){
-    let ACCEPT_ORDER = `
-      mutation{
-        acceptCheckoutRequest(userRequestedId: ${userRequestedId}, userAcceptedName: "${this.state.username}", userAcceptedEmail:"Chris@mail", itemId:${itemName}){
-          transactions{
-            id,
-            dateRequested,
-            userRequestedId,
-            userAccepted,
-            accepted,
-            itemId
-          }
-        }
-      }
-    `
-    axiosGraphQL
-    .post('', { query: ACCEPT_ORDER })
-    .then(results => {this.setState({transactions: results.data.data.acceptCheckoutRequest.transactions})},
-          error => {console.log(error)});
+          error => {console.log(error); console.log(DELETE_ITEM);});
   }
 
   verifyAuthentication(){
@@ -303,7 +302,7 @@ class App extends Component {
         </header>
         <div className="container">
           <h1>Available Items</h1>
-          <RentalTable tokenValidity={this.state.tokenValidity} results={this.state.results} deleteItem={this.deleteItem} requestItem={this.requestItem}/>
+          <RentalTable tokenValidity={this.state.tokenValidity} results={this.state.results} deleteItem={this.deleteItem} requestItem={this.checkOutItem}/>
           <div className="form" style={{display: this.state.tokenValidity > 1 ? "block" : "none" }}>
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
           </div>
@@ -317,23 +316,33 @@ class App extends Component {
               <TableCell align="true">User Requesting Item</TableCell>
               <TableCell align="true">Item Requested</TableCell>
               <TableCell align="true">Date Requested</TableCell>
+              <TableCell align="true">Date Accepted</TableCell>
+              <TableCell align="true">Date Returned</TableCell>
               <TableCell align="true">Quantity Requested</TableCell>
               <TableCell align="true">Order Accepted?</TableCell>
               <TableCell align="true">User Who Accepted The Order</TableCell>
-              <TableCell align="true">Date Accepted</TableCell>
+              {this.state.tokenValidity > 1 ? <TableCell align="true">Action</TableCell> : null}
             </TableRow>
           </TableHead>
           <TableBody>
             {this.state.transactions.map((row, index) => {
               return (
-                <TableRow key={index} onClick={() => this.acceptOrder(row.userRequestedId, row.itemId)}>
+                <TableRow key={index}>
                   <TableCell align="true">{row.userRequestedId}</TableCell>
                   <TableCell align="true">{row.itemId}</TableCell>
                   <TableCell align="true">{row.dateRequested}</TableCell>
+                  <TableCell align="true">{row.dateAccepted}</TableCell>
+                  <TableCell align="true">{row.dateReturned}</TableCell>
                   <TableCell align="true">{row.requestedQuantity}</TableCell>
                   <TableCell align="true">{row.accepted ? "Yes" : "No"}</TableCell>
                   <TableCell align="true">{row.userAccepted}</TableCell>
-                  <TableCell align="true">{row.dateAccepted}</TableCell>
+                  {this.state.tokenValidity > 1 ?
+                  <TableCell align="true">
+                    {!row.accepted ? <Button onClick={() => this.acceptCheckoutRequest(row.userRequestedId, row.id, row.itemId) }>Accept</Button> : null}
+                    {row.accepted && !row.returned ? <Button onClick={() => {this.checkInItem(row.itemId, row.id);}} >Check In</Button> : null}
+                  </TableCell>
+                  : null
+                  }
                 </TableRow>
               );
             })}

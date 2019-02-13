@@ -1,6 +1,7 @@
 import bcrypt
 from datetime import datetime
 import graphene
+from graphql_relay.node.node import from_global_id
 from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField
 import os
 from tables import Item, Transaction, User, Blacklist
@@ -83,17 +84,19 @@ class DeleteItem(graphene.Mutation):
     auth_token: Authentication token
     """
     class Arguments:
-        name = graphene.String(required=True)
+        item_name = graphene.String(required=True)
+        username = graphene.String(required=True)
         auth_token = graphene.String(required=True)
 
     items = graphene.List(ItemObject)
 
-    def mutate(self, _, name, auth_token):
+    def mutate(self, _, item_name, username, auth_token):
         # Check if the item exists
-        items = Item.query.filter_by(name=name).all()
+        items = Item.query.filter_by(name=item_name).all()
         if not items:
             raise Exception(f"No item with the name {name} found!")
 
+        user = User.query.filter_by(name=username).first()
         # Check if the user is authenticated
         if not validate_authentication(user, auth_token, admin=True):
             raise Exception(err_auth)
@@ -180,12 +183,15 @@ class CheckOutItem(graphene.Mutation):
 
         # If no account exists, create one, else authenticate the user.
         user = User.query.filter_by(name=requested_by).first()
+        time_now = datetime.now()
         if not user:
             if not password:
                 raise Exception("You do not have an account, so you should enter a password to create one.")
             if not email or not student_id:
                 raise Exception("To create an account, please provide an e-mail and student ID.")
-            user = User(name=requested_by, email=email, student_id=student_id, password=password)
+            encryped_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            user = User(name=requested_by, email=email, student_id=student_id, password=encryped_password,
+                        admin=False, date_created=time_now)
             db.session.add(user)
         else:
             if not validate_authentication(user, auth_token):
@@ -203,7 +209,7 @@ class CheckOutItem(graphene.Mutation):
 
         # Update the item's state as it is requested
         item.quantity -= quantity
-        transaction = Transaction(user_requested_id=user.id, requested_quantity=quantity, item_id=item.id, date_requested=datetime.now(), accepted=False)
+        transaction = Transaction(user_requested_id=user.id, requested_quantity=quantity, item_id=item.id, date_requested=time_now, accepted=False)
         db.session.add(transaction)
         db.session.commit()
         items = Item.query.all()
@@ -222,14 +228,16 @@ class AcceptCheckoutRequest(graphene.Mutation):
     """
     class Arguments:
         user_requested_id = graphene.Int(required=True)
+        transaction_id = graphene.String(required=True)
         user_accepted_name = graphene.String(required=True)
         item_id = graphene.Int(required=True)
         auth_token = graphene.String(required=True)
     
     transactions = graphene.List(TransactionObject)
 
-    def mutate(self, _, user_requested_id, user_accepted_name, item_id, auth_token):
+    def mutate(self, _, user_requested_id, transaction_id, user_accepted_name, item_id, auth_token):
         # Find the user requesting the item
+        _, transaction_id = from_global_id(transaction_id)
         user_requested = User.query.filter_by(id=user_requested_id).first()
         if not user_requested:
             # This should never happen because the requested user's account is created
@@ -247,7 +255,7 @@ class AcceptCheckoutRequest(graphene.Mutation):
             raise Exception("Item not found...")
 
         # Find the transaction associated with the user's checkout request
-        transaction = Transaction.query.filter_by(user_requested_id=user_requested_id, accepted=False, item_id=item.id).first()
+        transaction = Transaction.query.filter_by(id=transaction_id).first()
         if not transaction:
             raise Exception("No such transaction found...")
 
@@ -272,30 +280,28 @@ class CheckInItem(graphene.Mutation):
     """
     class Arguments:
         item_id = graphene.Int(required=True)
+        transaction_id = graphene.String(required=True)
         admin_name = graphene.String(required=True)
-        quantity = graphene.Int(required=True)
         auth_token = graphene.String(required=True)
 
-    items = graphene.List(ItemObject)
+    transactions = graphene.List(TransactionObject)
 
-    def mutate(self, _, item_id, admin_name, quantity, auth_token):
-        # Validate that the user is not attempting to check in invalid quantities
-        if quantity < 0:
-            raise Exception("Positive quantities only.")
-
+    def mutate(self, _, item_id, transaction_id, admin_name, auth_token):
         # Authenticate the user
         user = User.query.filter_by(name=admin_name).first()
         if not validate_authentication(user, auth_token, admin=True):
             raise Exception(err_auth)
 
         # Check the item back in
+        _, transaction_id = from_global_id(transaction_id)
+        transaction = Transaction.query.filter_by(id=transaction_id).first()
         item = Item.query.filter_by(id=item_id).first()
-        item.user_out = None
-        item.date_out = None
+        transaction.returned = True
+        transaction.date_returned = datetime.now()
         item.date_in = datetime.now()
-        item.quantity += quantity
-        items = Item.query.all()
-        return CheckInItem(items)
+        item.quantity += transaction.requested_quantity
+        transactions = Transaction.query.all()
+        return CheckInItem(transactions)
 
 
 class RegisterUser(graphene.Mutation):

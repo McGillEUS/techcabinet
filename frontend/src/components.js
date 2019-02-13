@@ -15,17 +15,15 @@ import TableRow from '@material-ui/core/TableRow';
 
 
 class LoggedOutDialog extends React.Component{
-  handleChange = name => event => {
-    this.setState({
-      [name]: event.target.value,
-    });
-  };
-
   render(){
     return(
       <DialogContent>
         <DialogContentText>
-          You are checking out: "{this.props.item}"
+          You are checking out: "<b>{this.props.item}</b>".<br></br>
+          Please fill the information below to create an account.<br></br>
+          If you have already created an account, please log in.<br></br>
+          Once your request is submitted, you can log in to track your requests.<br></br>
+          If you have any issues, please contact <b>it.director@mcgilleus.ca</b> for support.
         </DialogContentText>
         <TextField
           autoFocus
@@ -34,16 +32,25 @@ class LoggedOutDialog extends React.Component{
           label="Email Address"
           type="email"
           fullWidth
-          onChange={this.handleChange('email')}
+          onChange={this.props.handleChange('email')}
         />
         <TextField
           autoFocus
           margin="dense"
           id="name"
-          label="Full Name"
+          label="Username"
           type="name"
           fullWidth
-          onChange={this.handleChange('name')}
+          onChange={this.props.handleChange('name')}
+        />
+        <TextField
+          autoFocus
+          margin="dense"
+          id="password"
+          label="Password"
+          type="password"
+          fullWidth
+          onChange={this.props.handleChange('password')}
         />
         <TextField
           autoFocus
@@ -52,7 +59,7 @@ class LoggedOutDialog extends React.Component{
           label="Student ID"
           type="id"
           fullWidth
-          onChange={this.handleChange('studentid')}
+          onChange={this.props.handleChange('studentid')}
         />
         <TextField
           autoFocus
@@ -61,7 +68,7 @@ class LoggedOutDialog extends React.Component{
           label="Quantity"
           type="id"
           fullWidth
-          onChange={this.handleChange('quantity')}
+          onChange={this.props.handleChange('quantity')}
         />
       </DialogContent>
     )
@@ -69,17 +76,11 @@ class LoggedOutDialog extends React.Component{
 }
 
 class LoggedInDialog extends React.Component{
-  handleChange = name => event => {
-    this.setState({
-      [name]: event.target.value,
-    });
-  };
-
   render(){
     return(
       <DialogContent>
         <DialogContentText>
-          You are checking out: "{this.props.item}"
+          You are checking out: "<b>{this.props.item}</b>"
         </DialogContentText>
         <TextField
           autoFocus
@@ -88,7 +89,7 @@ class LoggedInDialog extends React.Component{
           label="Quantity"
           type="id"
           fullWidth
-          onChange={this.handleChange('quantity')}
+          onChange={this.props.handleChange('quantity')}
         />
       </DialogContent>
     )
@@ -100,23 +101,33 @@ class RequestDialog extends React.Component{
     state = {
       name: '',
       email: '',
+      password: '',
       studentid: '',
       quantity: ''
     };
 
-    dialog = (item) => this.props.tokenValidity > 0 ? <LoggedInDialog item={item}/> : <LoggedOutDialog item={item}/>;
+    handleChange = name => event => {
+      this.setState({
+        [name]: event.target.value,
+      });
+    };
+
+    dialog = (item) => this.props.tokenValidity > 0 ? <LoggedInDialog item={item} handleChange={this.handleChange}/> : <LoggedOutDialog item={item} handleChange={this.handleChange}/>;
     deleteButton = this.props.tokenValidity > 1 ? <Button onClick={this.props.deleteDialogAction} color="primary"> Delete </Button> : null;
 
     render(){
       return(
         <Dialog open={this.props.visible} aria-labelledby="form-dialog-title">
-        <DialogTitle id="form-dialog-title">Check out</DialogTitle>
+        <DialogTitle id="form-dialog-title">Check Out Form</DialogTitle>
         {this.dialog(this.props.item)}
         <DialogActions>
           <Button onClick={this.props.closeDialogAction} color="primary">
             Cancel
           </Button>
-          <Button onClick={() => {this.props.submitDialogAction(this.state.name,this.state.email,this.state.studentid, this.state.quantity); this.setState({name: '', email: '', studentid: ''})}} color="primary">
+          <Button onClick={() => {this.props.submitDialogAction(this.state.quantity, this.state.name,
+                                                                this.state.password, this.state.email,
+                                                                this.state.studentid);}}
+                  color="primary">
             Submit
           </Button>
           {this.deleteButton}
@@ -146,8 +157,13 @@ class SimpleTable extends React.Component {
       this.setState({dialogVisible: false});
     }
 
-    submitDialog(user, email, studentID, quantity){
-      this.props.requestItem(this.state.item, user, email, studentID, quantity)
+    submitDialog(quantity, username, password, email, studentID){
+      if (this.props.tokenValidity > 0){
+        this.props.requestItem(this.state.item, quantity);
+      } else {
+        this.props.requestItem(this.state.item, quantity, username,
+                               password, email, studentID);
+      }
       this.setState({dialogVisible: false});
     }
 

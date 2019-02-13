@@ -40,12 +40,14 @@ class Transaction(db.Model):
     user_accepted = db.Column(db.String(256))
     requested_quantity = db.Column(db.Integer)
     accepted = db.Column(db.Boolean)
+    returned = db.Column(db.Boolean)
     item_id = db.Column(db.Integer, db.ForeignKey('items.id'))
     date_requested = db.Column(db.DateTime)
     date_accepted = db.Column(db.DateTime)
+    date_returned = db.Column(db.DateTime)
 
     def __repr__(self):
-        return '<Transaction %r>' % self.name
+        return '<Transaction %r>' % self.id
 
 
 class Blacklist(db.Model):
@@ -55,3 +57,6 @@ class Blacklist(db.Model):
     user_id = db.Column(db.ForeignKey('users.id'))
     blacklisted_token = db.Column(db.String(256))
     blacklisted_at = db.Column(db.DateTime)
+
+    def __repr__(self):
+        return '<Blacklisted Token %r>' % self.blacklisted_token
