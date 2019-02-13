@@ -3,9 +3,7 @@ from utils import db
 
 class Item(db.Model):
     __tablename__ = 'items'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(256), index=True)
+    name = db.Column(db.String(256), primary_key=True, unique=True)
     date_in = db.Column(db.DateTime)
     date_out = db.Column(db.DateTime)
     quantity = db.Column(db.Integer)
@@ -17,12 +15,10 @@ class Item(db.Model):
 
 class User(db.Model):
     __tablename__ = 'users'
-
-    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, primary_key=True, unique=True)
     name = db.Column(db.String(256))
     email = db.Column(db.String(256))
     password = db.Column(db.String(256), nullable=False)
-    student_id = db.Column(db.String(256))
     date_created = db.Column(db.DateTime)
     admin = db.Column(db.Boolean)
     transactions = db.relationship("Transaction", backref="users", lazy=True)
@@ -36,12 +32,12 @@ class Transaction(db.Model):
     __tablename__ = 'transactions'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_requested_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user_requested_id = db.Column(db.String(256), db.ForeignKey('users.student_id'))
     user_accepted = db.Column(db.String(256))
     requested_quantity = db.Column(db.Integer)
     accepted = db.Column(db.Boolean)
     returned = db.Column(db.Boolean)
-    item_id = db.Column(db.Integer, db.ForeignKey('items.id'))
+    item = db.Column(db.String(256), db.ForeignKey('items.name'))
     date_requested = db.Column(db.DateTime)
     date_accepted = db.Column(db.DateTime)
     date_returned = db.Column(db.DateTime)
@@ -54,7 +50,7 @@ class Blacklist(db.Model):
     __tablename__ = 'blacklist'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.ForeignKey('users.id'))
+    user_id = db.Column(db.String(256), db.ForeignKey('users.student_id'))
     blacklisted_token = db.Column(db.String(256))
     blacklisted_at = db.Column(db.DateTime)
 

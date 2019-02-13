@@ -145,7 +145,7 @@ class ShowTransactions(graphene.Mutation):
             if user.admin:
                 transactions = Transaction.query.all()
             else:
-                transactions = Transaction.query.filter_by(user_requested_id=user.id).all()
+                transactions = Transaction.query.filter_by(user_requested_id=user.student_id).all()
         return ShowTransactions(transactions=transactions)
 
 
@@ -192,7 +192,11 @@ class CheckOutItem(graphene.Mutation):
             encryped_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
             user = User(name=requested_by, email=email, student_id=student_id, password=encryped_password,
                         admin=False, date_created=time_now)
-            db.session.add(user)
+            try:
+                db.session.add(user)
+            except Exception as e:
+                print(e)
+                db.session.rollback()
         else:
             if not validate_authentication(user, auth_token):
                 raise Exception("You should log in as you have an account! Feel free to create one otherwise.")
@@ -209,7 +213,7 @@ class CheckOutItem(graphene.Mutation):
 
         # Update the item's state as it is requested
         item.quantity -= quantity
-        transaction = Transaction(user_requested_id=user.id, requested_quantity=quantity, item_id=item.id, date_requested=time_now, accepted=False)
+        transaction = Transaction(user_requested_id=user.student_id, requested_quantity=quantity, item=item.name, date_requested=time_now, accepted=False)
         db.session.add(transaction)
         db.session.commit()
         items = Item.query.all()
@@ -223,22 +227,22 @@ class AcceptCheckoutRequest(graphene.Mutation):
     Arguments:
     user_requested_id: ID of the user requesting an item
     user_accepted_name: Name of the administrator accepting a checkout request
-    item_id: ID of the item being requested.
+    item: Name of the item being requested.
     auth_token: Authentication token associated to the administrator user.
     """
     class Arguments:
-        user_requested_id = graphene.Int(required=True)
+        user_requested_id = graphene.String(required=True)
         transaction_id = graphene.String(required=True)
         user_accepted_name = graphene.String(required=True)
-        item_id = graphene.Int(required=True)
+        item = graphene.String(required=True)
         auth_token = graphene.String(required=True)
     
     transactions = graphene.List(TransactionObject)
 
-    def mutate(self, _, user_requested_id, transaction_id, user_accepted_name, item_id, auth_token):
+    def mutate(self, _, user_requested_id, transaction_id, user_accepted_name, item, auth_token):
         # Find the user requesting the item
         _, transaction_id = from_global_id(transaction_id)
-        user_requested = User.query.filter_by(id=user_requested_id).first()
+        user_requested = User.query.filter_by(student_id=user_requested_id).first()
         if not user_requested:
             # This should never happen because the requested user's account is created
             # whenever a request is made
@@ -250,7 +254,8 @@ class AcceptCheckoutRequest(graphene.Mutation):
             raise Exception(err_auth)
 
         # Find the item the user requests
-        item = Item.query.filter_by(id=item_id).first()
+        print(item)
+        item = Item.query.filter_by(name=item).first()
         if not item:
             raise Exception("Item not found...")
 
@@ -273,20 +278,20 @@ class CheckInItem(graphene.Mutation):
     Authenticated administrators are able to accept a request to check items back in.
 
     Arguments:
-    item_id: The ID of the item which had been previously checked out
+    item: Name of the item being requested.
     admin_name: The name of the administrator checking the item back in
     quantity: Quantity of the item which had been checked out
     auth_token: Authentication token associated with the administrator user
     """
     class Arguments:
-        item_id = graphene.Int(required=True)
+        item = graphene.String(required=True)
         transaction_id = graphene.String(required=True)
         admin_name = graphene.String(required=True)
         auth_token = graphene.String(required=True)
 
     transactions = graphene.List(TransactionObject)
 
-    def mutate(self, _, item_id, transaction_id, admin_name, auth_token):
+    def mutate(self, _, item, transaction_id, admin_name, auth_token):
         # Authenticate the user
         user = User.query.filter_by(name=admin_name).first()
         if not validate_authentication(user, auth_token, admin=True):
@@ -295,7 +300,7 @@ class CheckInItem(graphene.Mutation):
         # Check the item back in
         _, transaction_id = from_global_id(transaction_id)
         transaction = Transaction.query.filter_by(id=transaction_id).first()
-        item = Item.query.filter_by(id=item_id).first()
+        item = Item.query.filter_by(name=item).first()
         transaction.returned = True
         transaction.date_returned = datetime.now()
         item.date_in = datetime.now()
@@ -332,17 +337,23 @@ class RegisterUser(graphene.Mutation):
         if os.environ.get("supersecretpassword") != supersecretpassword:
             raise Exception("You are not allowed to perform this action...")
 
-        # Create a user unless one already exists by that name.
-        user = User.query.filter_by(name=username, email=email, student_id=student_id).first()
+        # Create a user unless one already exists by the same student ID.
+        user = User.query.filter_by(student_id=student_id).first()
         if user:
             raise Exception("User already exists!")
 
         # Encrypt password and add user to database
         encryped_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         user = User(name=username, email=email, password=encryped_password, student_id=student_id, admin=admin)
-        db.session.add(user)
-        db.session.commit()
-        auth_token = encode_auth_token(user.id)
+        try:
+            db.session.add(user)
+            db.session.commit()
+        except Exception as e:
+            print(e)
+            session.rollback()
+            raise Exception("Creation failed...")
+
+        auth_token = encode_auth_token(user.student_id)
         return RegisterUser(auth_token.decode())
 
 
@@ -372,16 +383,18 @@ class ChangePassword(graphene.Mutation):
         else:
             raise Exception("Failed to authenticate user.")
 
-        blacklisted_token = Blacklist(user_id=user.id, blacklisted_token=auth_token, blacklisted_at=datetime.now())
+        blacklisted_token = Blacklist(user_id=user.student_id, blacklisted_token=auth_token, blacklisted_at=datetime.now())
         try:
             db.session.add(blacklisted_token)
             db.session.commit()
         except Exception as e:
             print(e)
-        finally:
-            # Renew authentication token
-            auth_token = encode_auth_token(user.id).decode()
-            return ChangePassword(auth_token)
+            db.session.rollback()
+            raise Exception(f"Couldn't blacklist {blacklisted_token}")
+        
+        # Renew authentication token
+        auth_token = encode_auth_token(user.student_id).decode()
+        return ChangePassword(auth_token)
 
 
 class LogInUser(graphene.Mutation):
@@ -404,7 +417,7 @@ class LogInUser(graphene.Mutation):
 
         # Verify that the username is valid and that the password matches
         if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
-            auth_token = encode_auth_token(user.id)
+            auth_token = encode_auth_token(user.student_id)
             if auth_token:
                 return LogInUser(auth_token.decode())
             else:
@@ -429,7 +442,7 @@ class LogOutUser(graphene.Mutation):
 
     def mutate(self, _, auth_token):
         user_id = decode_auth_token(auth_token)
-        user = User.query.filter_by(id=user_id).first()
+        user = User.query.filter_by(student_id=user_id).first()
         # The token should get decoded into an integer representing the user's ID
         if not user or not validate_authentication(user, auth_token):
             raise Exception("User is not logged in...")
@@ -462,7 +475,7 @@ class ValidateToken(graphene.Mutation):
     def mutate(self, _, auth_token, username):
         decoded_token_id = decode_auth_token(auth_token)
         user = User.query.filter_by(name=username).first()
-        is_valid = 1 if validate_authentication(user, auth_token) else 0
+        is_valid = 1 if user and validate_authentication(user, auth_token) else 0
         if is_valid == 1:
             is_valid = 2 if validate_authentication(user, auth_token, admin=True) else is_valid
         return ValidateToken(is_valid)
@@ -494,9 +507,9 @@ def validate_authentication(user, auth_token, admin=False):
     expired nor on the blacklist. If the operation requires administrator privileges,
     then the user must be an administrator in addition to being authenticated.
     """
-    blacklisted_token = Blacklist.query.filter_by(user_id=user.id,
+    blacklisted_token = Blacklist.query.filter_by(user_id=user.student_id,
                                                   blacklisted_token=auth_token).first()
-    is_authenticated = not blacklisted_token and user and user.id == decode_auth_token(auth_token)
+    is_authenticated = not blacklisted_token and user and user.student_id == decode_auth_token(auth_token)
 
     if admin:
         return is_authenticated and user.admin

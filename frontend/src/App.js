@@ -79,7 +79,7 @@ class App extends Component {
         dateAccepted,
         dateRequested,
         dateReturned,
-        itemId
+        item
       }
     }
   }
@@ -102,7 +102,6 @@ class App extends Component {
                      authToken: "${this.state.authToken}", itemName:"${itemName}",
                      email:"${email}", password:"${password}", studentId:"${studentID}"){
           items{
-            id,
             name
           }
         }
@@ -114,11 +113,11 @@ class App extends Component {
           error => {console.log(error); console.log(CHECKOUT_ITEM);});
   }
 
-  acceptCheckoutRequest(userRequestedId, transactionId, itemId) {
+  acceptCheckoutRequest(userRequestedId, transactionId, item) {
     let ACCEPT_CHECKOUT_REQUEST = `
     mutation{
-      acceptCheckoutRequest(userRequestedId: ${userRequestedId}, transactionId: "${transactionId}",
-                            userAcceptedName: "${this.state.username}", itemId: ${itemId},
+      acceptCheckoutRequest(userRequestedId: "${userRequestedId}", transactionId: "${transactionId}",
+                            userAcceptedName: "${this.state.username}", item: "${item}",
                             authToken: "${this.state.authToken}"){
         transactions{
           id,
@@ -130,7 +129,7 @@ class App extends Component {
           dateAccepted,
           dateRequested,
           dateReturned,
-          itemId
+          item
         }
       }
     }
@@ -141,10 +140,10 @@ class App extends Component {
             error => {console.log(error); console.log(ACCEPT_CHECKOUT_REQUEST)});
   }
 
-  checkInItem(itemId, transactionId) {
+  checkInItem(item, transactionId) {
     let CHECKIN_ITEM = `
     mutation{
-      checkInItem(itemId: ${itemId}, transactionId: "${transactionId}",
+      checkInItem(item: "${item}", transactionId: "${transactionId}",
                   adminName: "${this.state.username}", authToken: "${this.state.authToken}"){
         transactions{
           id,
@@ -156,7 +155,7 @@ class App extends Component {
           dateAccepted,
           dateRequested,
           dateReturned,
-          itemId
+          item
         }
       }
     }
@@ -173,7 +172,6 @@ class App extends Component {
       createItem(authToken: "${this.state.authToken}", username: "${this.state.username}",
                  itemName: "${itemName}", quantity: ${quantity}){
         items{
-          id,
           name,
           dateIn,
           quantity
@@ -193,7 +191,6 @@ class App extends Component {
         deleteItem(itemName: "${name}", authToken: "${this.state.authToken}",
                    username:"${this.state.username}"){
           items{
-            id,
             name,
             dateIn,
             dateOut,
@@ -301,6 +298,11 @@ class App extends Component {
             </div>
         </header>
         <div className="container">
+          <h1>Information</h1>
+          <p>Welcome to the Engineering Undergraduate Society's rental platform for the tech cabinet.</p>
+          <p>To request an item, simply click on its name and follow the form instructions.</p>
+          <p>Please contact Chris in the EUS Office (<b>McConnell room 7</b>) to collect your item.</p>
+          <p>You are expected to return rented items within <b>five days</b> excluding week-ends.</p>
           <h1>Available Items</h1>
           <RentalTable tokenValidity={this.state.tokenValidity} results={this.state.results} deleteItem={this.deleteItem} requestItem={this.checkOutItem}/>
           <div className="form" style={{display: this.state.tokenValidity > 1 ? "block" : "none" }}>
@@ -329,7 +331,7 @@ class App extends Component {
               return (
                 <TableRow key={index}>
                   <TableCell align="true">{row.userRequestedId}</TableCell>
-                  <TableCell align="true">{row.itemId}</TableCell>
+                  <TableCell align="true">{row.item}</TableCell>
                   <TableCell align="true">{row.dateRequested}</TableCell>
                   <TableCell align="true">{row.dateAccepted}</TableCell>
                   <TableCell align="true">{row.dateReturned}</TableCell>
@@ -338,8 +340,8 @@ class App extends Component {
                   <TableCell align="true">{row.userAccepted}</TableCell>
                   {this.state.tokenValidity > 1 ?
                   <TableCell align="true">
-                    {!row.accepted ? <Button onClick={() => this.acceptCheckoutRequest(row.userRequestedId, row.id, row.itemId) }>Accept</Button> : null}
-                    {row.accepted && !row.returned ? <Button onClick={() => {this.checkInItem(row.itemId, row.id);}} >Check In</Button> : null}
+                    {!row.accepted ? <Button onClick={() => this.acceptCheckoutRequest(row.userRequestedId, row.id, row.item) }>Accept</Button> : null}
+                    {row.accepted && !row.returned ? <Button onClick={() => {this.checkInItem(row.item, row.id);}} >Check In</Button> : null}
                   </TableCell>
                   : null
                   }
