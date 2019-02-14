@@ -14,6 +14,11 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 
 
+/**
+ * Dialog screen displayed when a user checks out an item and is logged out.
+ * The user effectively creates an account after seeing this dialog, so they are
+ * asked to enter their personal information.
+ */
 class LoggedOutDialog extends React.Component{
   render(){
     return(
@@ -85,6 +90,11 @@ class LoggedOutDialog extends React.Component{
   }
 }
 
+/**
+ * Dialog screen displayed when a user checks out an item and is logged in.
+ * Given that the user will authenticate the checkout with their current account,
+ * this simply asks for the quantity of the item they request.
+ */
 class LoggedInDialog extends React.Component{
   render(){
     return(
@@ -108,7 +118,10 @@ class LoggedInDialog extends React.Component{
   }
 }
 
-
+/**
+ * Generic setup for the dialog to request items.
+ * This generic component will either contain a LoggedInDialog or LoggedOutDialog.
+ */
 class RequestDialog extends React.Component{
     state = {
       name: '',
@@ -151,6 +164,13 @@ class RequestDialog extends React.Component{
     }
 }
 
+/**
+ * Meant to be a generic table but has been customized to support only displaying items.
+ * State elements:
+ * `dialogVisible`: Whether the checkout request dialog should be shown to the user or not
+ * `item`: Name of the dialog being checked out
+ * `errors`: Dict containing errors that may be shown to the user for various request dialog fields.
+ */
 class SimpleTable extends React.Component {
     constructor(props) {
       super(props);
@@ -165,62 +185,101 @@ class SimpleTable extends React.Component {
       this.deleteDialog = this.deleteDialog.bind(this);
     }
 
+    /**
+     * Handler for clicks on a row from the items table
+     * @param {string} name 
+     */
     handleClick(name){
       this.setState({dialogVisible: true, item: name});
     }
 
+    /**
+     * Handler for clicking the "close" button in the request dialog
+     */
     closeDialog(){
       this.setState({dialogVisible: false});
     }
     
+    /**
+     * Simple e-mail validator matching input to a regex.
+     * Credit for regex: https://stackoverflow.com/questions/46155/how-to-validate-an-email-address-in-javascript
+     * @param {string} email 
+     */
     validateEmail(email) {
-      // Credit: https://stackoverflow.com/questions/46155/how-to-validate-an-email-address-in-javascript
       var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
       return re.test(String(email).toLowerCase());
     }
 
+    /**
+     * Handler for clicking "submit" button in the request dialog
+     * More information on this function can be found in the function `checkOutItem`
+     * from `App.js`.
+     * @param {int} quantity 
+     * @param {string} username 
+     * @param {string} password 
+     * @param {string} email 
+     * @param {string} studentID 
+     */
     submitDialog(quantity, username, password, email, studentID){
+      // By default, input is valid and the errors match what is currently in the state.
       let validInput = true;
       let errors = this.state.errors
+
+      // We always reset the error to empty by default, then update it if the input is erroneous.
+      // First, validate quantity (this is relevant to users logged in and out)
       errors['quantity'] = "";
       if (quantity <= 0){
         errors['quantity'] = "Quantity must be greater than zero.";
         validInput = false;
       }
+      // If the input is valid and the user is logged in, submit the request
       if (this.props.tokenValidity > 0 && validInput){
           this.props.requestItem(this.state.item, quantity);
       } else {
+        // User is logged out
+        // Verify that the username is valid
         errors['username'] = "";
         if (!username || username.length <= 0 || username.length > 100){
           errors['username'] = "You must input a username between 0 and 100 characters.";
           validInput = false;
         }
+
+        // Verify that a password has been given
         errors['password'] = "";
         if(!password){
           errors['password'] = "You must input a password.";
           validInput = false;
         }
+
+        // Verify that a valid e-mail has been provided
         errors['email'] = "";
         if(!email || !this.validateEmail(email)){
           errors['email'] = "You have inputted an invalid email.";
           validInput = false;
         }
+
+        // Verify that a valid student ID has been provided
         errors['student_id'] = "";
         if(!studentID || studentID.length <= 5 || isNaN(studentID)){
           errors['student_id'] = "Your student ID should be a 6-7 digit number.";
           validInput = false;
         }
+
+        // Update state to display errors and request item if the input is valid.
         this.setState({errors: errors});
         if (validInput){
           this.props.requestItem(this.state.item, quantity, username,
             password, email, studentID);
         }
       }
+      
+      // Hide the dialog if the item has been successfully requested
       if (validInput){
         this.setState({dialogVisible: false});
       }
     }
 
+    // Handler for clicking "delete" button in the request dialog
     deleteDialog(){
       this.props.deleteItem(this.state.item);
       this.setState({dialogVisible: false});
@@ -261,6 +320,10 @@ class SimpleTable extends React.Component {
     }
 }
 
+/**
+ * Generic text field, that is reused for the Login form and the item creation form.
+ * Simply contains two text fields and a button.
+ */
 class SimpleTextField extends React.Component {
     state = {
       textFieldLabel1: '',

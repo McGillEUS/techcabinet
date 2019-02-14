@@ -1,12 +1,14 @@
 const GET_ITEMS = `
-  mutation{
-    showItems{
-      items{
-        id,
-        name,
-        dateIn,
-        dateOut,
-        quantity
+  {
+    allItems{
+      edges{
+        node{
+          id,
+          name,
+          dateIn,
+          dateOut,
+          quantity        
+        }
       }
     }
   }

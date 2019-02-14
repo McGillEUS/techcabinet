@@ -23,6 +23,7 @@ const axiosGraphQL = axios.create({
   headers: {}
 });
 
+// Initialize basic components and specify which part of the front-end they belong to
 SimpleTextField.propTypes = {
   classes: PropTypes.object.isRequired,
 };
@@ -34,7 +35,18 @@ SimpleTable.propTypes = {
 const RentalTable = withStyles(tableStyles)(SimpleTable);
 const SimpleStyledTextField = withStyles(textBoxStyles)(SimpleTextField);
 
+// Create main component for the application
 class App extends Component {
+  /* 
+  * State elements of the main application:
+  * `results`: The results from querying "items".
+  * `transactions`: All transactions a user can see
+  * `tokenValidity`: Level of validity of a token (0: invalid, 1: user, 2: admin)
+  * `authToken`: Authentication token used for performing back-end queries
+  * `username`: Username associated with the token. Mismatching username/token = invalid authentication
+  * `authErrors`: Simple string used for showing users authentication errors they might encounter.
+  * `loading`: Used to ensure the state is properly loaded before rendering the page so children of `App` can access it.
+  */
   constructor(props) {
     super(props);
     this.state = {
@@ -46,6 +58,8 @@ class App extends Component {
       authErrors: "",
       loading: true
     };
+
+    // Bind `this` to the various functions which access the state (through `this.state`)
     this.createItem = this.createItem.bind(this);
     this.deleteItem = this.deleteItem.bind(this);
     this.checkOutItem = this.checkOutItem.bind(this);
@@ -54,20 +68,28 @@ class App extends Component {
     this.logIn = this.logIn.bind(this);
   }
 
+  // Operations to be done after initial render
   componentDidMount() {
     this.getAllItems();
     this.verifyAuthentication();
   }
 
+  /**
+   * Basic query, simply retrieves all items for the user.
+   */
   getAllItems() {
     axiosGraphQL
       .post('', { query: GET_ITEMS })
       .then(results => {this.setState({results: results.data.data.allItems.edges.map(result => result.node)})},
-            error => {console.log(error)});
+            error => {console.log(error); console.log(GET_ITEMS)});
   };
 
+  /**
+   * Mutation despite also being a `get` because I had trouble implementing the authentication check as a Query.
+   * Retrieves all transactions depending on the authentication level of the user (verified on the back-end)
+   */
   getAllTransactions(){
-    let GET_TRANSACTIONS = `
+    const GET_TRANSACTIONS = `
     mutation{
     showTransactions(username: "${this.state.username}",
                      authToken: "${this.state.authToken}"){
@@ -88,17 +110,27 @@ class App extends Component {
   `;
     axiosGraphQL
     .post('', { query: GET_TRANSACTIONS })
-    .then(results => {this.setState({transactions: results.data.data.showTransactions.transactions}); console.log(results.data.data.showTransactions.transactions)},
+    .then(results => {this.setState({transactions: results.data.data.showTransactions.transactions})},
           error => {console.log(error)});
   }
 
+  /**
+   * Creates a checkout request for a user.
+   * If  the optional fields are not provided, the user must currently be authenticated.
+   * @param {string} itemName: Name of the item getting checked out
+   * @param {int} quantity: How much of the object is getting checked out
+   * @param {string} username: (optional) User requesting to check out the item
+   * @param {string} password: (optional) Password of this user
+   * @param {string} email: (optional) E-mail of this user
+   * @param {string} studentID: (optional) Student ID for this user.
+   */
   checkOutItem(itemName, quantity, username, password, email, studentID){
     username = username || this.state.username;
     password = password || "";
     email = email || "";
     studentID = studentID || "";
 
-    let CHECKOUT_ITEM = `
+    const CHECKOUT_ITEM = `
       mutation{
         checkOutItem(requestedBy: "${username}", quantity: ${quantity},
                      authToken: "${this.state.authToken}", itemName:"${itemName}",
@@ -115,8 +147,14 @@ class App extends Component {
           error => {console.log(error); console.log(CHECKOUT_ITEM);});
   }
 
+  /**
+   * Administrators accept the check out requests of normal users
+   * @param {string} userRequestedId: ID of user who created the checkout request
+   * @param {string} transactionId: ID of the transaction being accepted
+   * @param {string} item: Name of the item getting checked out
+   */
   acceptCheckoutRequest(userRequestedId, transactionId, item) {
-    let ACCEPT_CHECKOUT_REQUEST = `
+    const ACCEPT_CHECKOUT_REQUEST = `
     mutation{
       acceptCheckoutRequest(userRequestedId: "${userRequestedId}", transactionId: "${transactionId}",
                             userAcceptedName: "${this.state.username}", item: "${item}",
@@ -142,8 +180,13 @@ class App extends Component {
             error => {console.log(error); console.log(ACCEPT_CHECKOUT_REQUEST)});
   }
 
+  /**
+   * Administrators can check items back in.
+   * @param {string} item: Name of the item being checked in
+   * @param {string} transactionId: ID of the transaction being closed 
+   */
   checkInItem(item, transactionId) {
-    let CHECKIN_ITEM = `
+    const CHECKIN_ITEM = `
     mutation{
       checkInItem(item: "${item}", transactionId: "${transactionId}",
                   adminName: "${this.state.username}", authToken: "${this.state.authToken}"){
@@ -168,11 +211,16 @@ class App extends Component {
             error => {console.log(error); console.log(CHECKIN_ITEM)});
   }
 
-  createItem(itemName, quantity){
-    let CREATE_ITEM = `
+  /**
+   * Administrators can create items
+   * @param {string} item: Name of the item being created
+   * @param {string} quantity: Quantity available
+   */
+  createItem(item, quantity){
+    const CREATE_ITEM = `
     mutation{
       createItem(authToken: "${this.state.authToken}", username: "${this.state.username}",
-                 itemName: "${itemName}", quantity: ${quantity}){
+                 itemName: "${item}", quantity: ${quantity}){
         items{
           name,
           dateIn,
@@ -187,10 +235,14 @@ class App extends Component {
           error => {console.log(error); console.log(CREATE_ITEM)});
   }
 
-  deleteItem(name){
-    let DELETE_ITEM = `
+  /**
+   * Administrators can delete items
+   * @param {string} item: Name of the item being deleted
+   */
+  deleteItem(item){
+    const DELETE_ITEM = `
       mutation{
-        deleteItem(itemName: "${name}", authToken: "${this.state.authToken}",
+        deleteItem(itemName: "${item}", authToken: "${this.state.authToken}",
                    username:"${this.state.username}"){
           items{
             name,
@@ -207,11 +259,14 @@ class App extends Component {
           error => {console.log(error); console.log(DELETE_ITEM);});
   }
 
+  /**
+   * Verify that a user's authentication token and username (from localstorage) are valid.
+   */
   verifyAuthentication(){
-    let authToken = localStorage.getItem("authToken");
-    let username = localStorage.getItem("username");
+    const authToken = localStorage.getItem("authToken");
+    const username = localStorage.getItem("username");
 
-    let VALIDATE_TOKEN = `
+    const VALIDATE_TOKEN = `
     mutation{
       validateToken(username: "${username}", authToken:"${authToken}"){
         valid
@@ -224,22 +279,27 @@ class App extends Component {
           error => {console.log(VALIDATE_TOKEN); console.log(error); this.setState({loading: false});});
   }
 
-  updateAuthenticatedState(authToken, username, validity_level){
-    /* The local state should only contain valid tokens.
-     * Tokens have three levels of validity:
-     * Level 0: Unauthenticated user
-     * Level 1: Authenticated user
-     * Level 2: Authenticated administrator
-     */
-    if (validity_level > 0){
-      this.setState({authToken: authToken, username: username, tokenValidity: validity_level});
+  /**
+   * Updates the state when a token's validity is established
+   * @param {string} authToken 
+   * @param {string} username 
+   * @param {int} validityLevel: 0: Invalid, 1: User, 2: Administrator
+   */
+  updateAuthenticatedState(authToken, username, validityLevel){
+    if (validityLevel > 0){
+      this.setState({authToken: authToken, username: username, tokenValidity: validityLevel});
       this.getAllTransactions();
     }
     this.setState({loading: false});
   }
 
+  /**
+   * Allows user to log in
+   * @param {string} username
+   * @param {string} password
+   */
   logIn(username, password){
-    let LOGIN = `
+    const LOGIN = `
     mutation{
       loginUser(username:"${username}", password:"${password}"){
         authToken
@@ -254,8 +314,12 @@ class App extends Component {
                     this.setState({authErrors: "Invalid username or password."})});
   }
 
+  /**
+   * Allows user to log out.
+   * In the backend, the valid token is blacklisted.
+   */
   logOut(){
-    let LOGOUT = `
+    const LOGOUT = `
     mutation{
       logoutUser(authToken:"${this.state.authToken}"){
         status
@@ -269,6 +333,11 @@ class App extends Component {
           error => {console.log(LOGOUT); console.log(error)});
   }
 
+  /**
+   * When a user has logged in, this function updates the state and localstorage.
+   * @param {string} results: Authentication results from GraphQL query
+   * @param {string} username: Username used to produce the authentication results
+   */
   handleLogInInfo(results, username){
     if (results.data.data.loginUser != null){
       localStorage.setItem("authToken", results.data.data.loginUser.authToken);
