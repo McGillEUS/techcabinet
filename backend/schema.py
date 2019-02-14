@@ -30,14 +30,6 @@ class TransactionObject(SQLAlchemyObjectType):
         interfaces = (graphene.relay.Node, )
 
 
-class Query(graphene.ObjectType):
-    """
-    Basic Query object.
-    """
-    node = graphene.relay.Node.Field()
-    all_items = SQLAlchemyConnectionField(ItemObject)
-
-
 class CreateItem(graphene.Mutation):
     """
     Creates an Item.
@@ -109,19 +101,6 @@ class DeleteItem(graphene.Mutation):
         return DeleteItem(items=items)
 
 
-class ShowItems(graphene.Mutation):
-    """
-    Shows all items in the database.
-
-    These are visible to anyone using the platform.
-    """
-    items = graphene.List(ItemObject)
-
-    def mutate(self, _):
-        items = Item.query.all()
-        return ShowItems(items=items)
-
-
 class ShowTransactions(graphene.Mutation):
     """
     Shows all transactions in the database to an authenticated user.
@@ -184,14 +163,25 @@ class CheckOutItem(graphene.Mutation):
         # If no account exists, create one, else authenticate the user.
         user = User.query.filter_by(name=requested_by).first()
         time_now = datetime.now()
+
+        # We make sure the user's name doesn't exist
         if not user:
+            # We make sure the user gave a password, email and student ID
             if not password:
                 raise Exception("You do not have an account, so you should enter a password to create one.")
             if not email or not student_id:
                 raise Exception("To create an account, please provide an e-mail and student ID.")
+
+            # We make sure the user's student ID doesn't already correspond to an existing user
+            user = User.query.filter_by(student_id=student_id).first()
+            if not user:
+                user = User(name=requested_by, email=email, student_id=student_id, password=encryped_password,
+                            admin=False, date_created=time_now)
+            else:
+                raise Exception("This student ID is already registered!")
+
+            # We encrypt the user's password and create an account.
             encryped_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-            user = User(name=requested_by, email=email, student_id=student_id, password=encryped_password,
-                        admin=False, date_created=time_now)
             try:
                 db.session.add(user)
             except Exception as e:
@@ -339,6 +329,10 @@ class RegisterUser(graphene.Mutation):
 
         # Create a user unless one already exists by the same student ID.
         user = User.query.filter_by(student_id=student_id).first()
+
+        if user:
+            raise Exception("User already exists!")
+        user = User.query.filter_by(name=username).first()
         if user:
             raise Exception("User already exists!")
 
@@ -475,7 +469,12 @@ class ValidateToken(graphene.Mutation):
     def mutate(self, _, auth_token, username):
         decoded_token_id = decode_auth_token(auth_token)
         user = User.query.filter_by(name=username).first()
+        print('user', user)
         is_valid = 1 if user and validate_authentication(user, auth_token) else 0
+        print('valid', is_valid)
+        print('token', auth_token)
+        print('type', type(auth_token))
+        print('validate auth', validate_authentication(user, auth_token))
         if is_valid == 1:
             is_valid = 2 if validate_authentication(user, auth_token, admin=True) else is_valid
         return ValidateToken(is_valid)
@@ -483,11 +482,10 @@ class ValidateToken(graphene.Mutation):
 
 class Mutation(graphene.ObjectType):
     """
-    Defines all available mutations.
+    Defines all available mutations (Create, Update, Delete).
     """
     create_item = CreateItem.Field()
     delete_item = DeleteItem.Field()
-    show_items = ShowItems.Field()
     check_out_item = CheckOutItem.Field()
     check_in_item = CheckInItem.Field()
     accept_checkout_request = AcceptCheckoutRequest.Field()
@@ -499,6 +497,15 @@ class Mutation(graphene.ObjectType):
     validate_token = ValidateToken.Field()
 
 
+class Query(graphene.ObjectType):
+    """
+    Defines all available queries (Read).
+    """
+    node = graphene.relay.Node.Field()
+    all_items = SQLAlchemyConnectionField(ItemObject)
+    
+
+
 def validate_authentication(user, auth_token, admin=False):
     """
     Simple helper method to validate a user's authentication.
@@ -507,10 +514,16 @@ def validate_authentication(user, auth_token, admin=False):
     expired nor on the blacklist. If the operation requires administrator privileges,
     then the user must be an administrator in addition to being authenticated.
     """
+    if not user:
+        return False
     blacklisted_token = Blacklist.query.filter_by(user_id=user.student_id,
                                                   blacklisted_token=auth_token).first()
+    print('blacklist', blacklisted_token)
     is_authenticated = not blacklisted_token and user and user.student_id == decode_auth_token(auth_token)
-
+    print('id', user.student_id)
+    print('did', decode_auth_token(auth_token))
     if admin:
         return is_authenticated and user.admin
     return is_authenticated
+
+schema = graphene.Schema(query=Query, mutation=Mutation)

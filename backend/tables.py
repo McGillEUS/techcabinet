@@ -3,6 +3,7 @@ from utils import db
 
 class Item(db.Model):
     __tablename__ = 'items'
+
     name = db.Column(db.String(256), primary_key=True, unique=True)
     date_in = db.Column(db.DateTime)
     date_out = db.Column(db.DateTime)
@@ -15,7 +16,8 @@ class Item(db.Model):
 
 class User(db.Model):
     __tablename__ = 'users'
-    student_id = db.Column(db.Integer, primary_key=True, unique=True)
+
+    student_id = db.Column(db.String(256), primary_key=True, unique=True)
     name = db.Column(db.String(256))
     email = db.Column(db.String(256))
     password = db.Column(db.String(256), nullable=False)
@@ -50,6 +52,7 @@ class Blacklist(db.Model):
     __tablename__ = 'blacklist'
 
     id = db.Column(db.Integer, primary_key=True)
+
     user_id = db.Column(db.String(256), db.ForeignKey('users.student_id'))
     blacklisted_token = db.Column(db.String(256))
     blacklisted_at = db.Column(db.DateTime)

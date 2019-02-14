@@ -17,14 +17,14 @@ app.add_url_rule(
     )
 )
 
-
+port = 4293
 @app.route('/')
 def index():
     welcome_header = '<h1>Welcome to the back-end REST API of the tech cabinet rental platform!</h1>'
-    graphql_endpoint = '<p>To use this API, visit the GraphQL end-point: <a href="http://127.0.0.1:5000/graphql">/graphql</a></p>'
+    graphql_endpoint = f'<p>To use this API, visit the GraphQL end-point: <a href="http://127.0.0.1:{port}/graphql">/graphql</a></p>'
     return welcome_header + graphql_endpoint
 
 
 if __name__ == '__main__':
-     app.run()
+     app.run(port=port)
 
