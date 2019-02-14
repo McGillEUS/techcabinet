@@ -64,3 +64,25 @@ mutation{
   }
 }
 '''
+
+checkout_item = '''
+mutation{
+  checkOutItem(requestedBy: "%s", email:"%s", password:"%s", studentId:"%s", itemName:"%s", quantity: %i, authToken: ""){
+    items{
+      id,
+      name
+    }
+  }
+}
+'''
+
+checkout_item_loggedin = '''
+mutation{
+  checkOutItem(requestedBy: "%s", email:"", password:"", studentId:"", itemName:"%s", quantity: %i, authToken: "%s"){
+    items{
+      id,
+      name
+    }
+  }
+}
+'''

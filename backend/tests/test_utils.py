@@ -3,7 +3,6 @@ import jwt
 import pytest
 import sys
 import time
-from fixtures import clear_env
 
 sys.path.insert(0, os.getcwd())
 import utils
