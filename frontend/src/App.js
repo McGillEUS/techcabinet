@@ -17,8 +17,9 @@ import { GET_ITEMS } from './requests'
 
 import './App.css';
 
+// Deployed URL: 'https://rental.mcgilleus.ca/graphql'
 const axiosGraphQL = axios.create({
-  baseURL: 'http://127.0.0.1:5000/graphql',
+  baseURL: 'http://127.0.0.1:4293/graphql',
   headers: {}
 });
 
@@ -61,7 +62,7 @@ class App extends Component {
   getAllItems() {
     axiosGraphQL
       .post('', { query: GET_ITEMS })
-      .then(results => {this.setState({results: results.data.data.showItems.items});},
+      .then(results => {this.setState({results: results.data.data.allItems.edges.map(result => result.node)})},
             error => {console.log(error)});
   };
 

@@ -4,12 +4,16 @@ import jwt
 import sys
 import time
 
-from queries import query_items, create_item, delete_item, log_in, validate_token, checkout_item_loggedin, checkout_item
+from queries import query_items, create_item, delete_item, log_in, validate_token, \
+                    checkout_item_loggedin, checkout_item, show_transactions, \
+                    accept_checkout, checkin_item
+
 sys.path.insert(0, os.getcwd())
 from schema import schema, err_auth
 
 client = Client(schema)
 item_name = "potato"
+
 
 def test_inventory__show_and_create_items(clear_db):
     """
@@ -91,12 +95,8 @@ def test_transactions__checkout_item(clear_db, create_admin_account, create_user
 
     # We want to share the credentials across the linked tests,
     # We don't want to re-run "create_admin_account" if we don't clear the DB.
-    os.environ['admin_username'] = admin_username
-    os.environ['admin_password'] = admin_password
-    os.environ['admin_auth_token'] = admin_auth_token
-    os.environ['reg_username'] = reg_username
-    os.environ['reg_password'] = reg_password
-    os.environ['reg_auth_token'] = reg_auth_token
+    os.environ['admin_username'], os.environ['admin_auth_token'] = admin_username, admin_auth_token
+    os.environ['reg_username'], os.environ['reg_auth_token'] = reg_username, reg_auth_token
 
     invalid_username, invalid_auth_token = "", ""
 
@@ -173,7 +173,23 @@ def test_transactions__show_transactions():
     Tests that an authenticated user an only see their transactions,
     while an administrator can see all transactions.
     """
-    pass
+    admin_username, admin_auth_token = os.environ['admin_username'], os.environ['admin_auth_token']
+    reg_username, reg_auth_token = os.environ['reg_username'], os.environ['reg_auth_token']
+
+    # Invalid scenario: no user
+    no_user_result = client.execute(show_transactions % ("", ""))
+    assert len(no_user_result['data']['showTransactions']['transactions']) == 0
+
+    # Valid scenario : regular user
+    regular_user_result = client.execute(show_transactions % (reg_username, reg_auth_token))
+    assert len(regular_user_result['data']['showTransactions']['transactions']) == 1
+
+    # Valid scenario : administrator
+    admin_user_result = client.execute(show_transactions % (admin_username, admin_auth_token))
+    assert len(admin_user_result['data']['showTransactions']['transactions']) == 3
+
+    os.environ['userRequestedId'] = admin_user_result['data']['showTransactions']['transactions'][0]['userRequestedId']
+    os.environ['transactionId'] = admin_user_result['data']['showTransactions']['transactions'][0]['id']
 
 
 def test_transactions__accept_checkout_request():
@@ -181,7 +197,22 @@ def test_transactions__accept_checkout_request():
     Tests that a checkout request can be accepted by an administrator but
     not by a regular user.
     """
-    pass
+    transactionId = os.environ.get("transactionId", "")
+    userRequestedId = os.environ.get("userRequestedId", "")
+    admin_username, admin_auth_token = os.environ['admin_username'], os.environ['admin_auth_token']
+    reg_username, reg_auth_token = os.environ['reg_username'], os.environ['reg_auth_token']
+
+    # Invalid scenario: regular users can not accept checkout requests
+    regular_user_result = client.execute(accept_checkout % (reg_username, reg_auth_token,
+                                                            userRequestedId, transactionId,
+                                                            item_name))
+    assert 'must be an authenticated administrator' in regular_user_result['errors'][0]['message']
+
+    # Valid scenario: administrators can accept checkout requests
+    admin_user_result = client.execute(accept_checkout % (admin_username, admin_auth_token, 
+                                                          userRequestedId, transactionId,
+                                                          item_name))
+    assert admin_user_result['data']['acceptCheckoutRequest']['transactions'][0]['userAccepted'] == admin_username
 
 
 def test_transactions__checkin_item():
@@ -191,7 +222,19 @@ def test_transactions__checkin_item():
     Tests that an administrator can check items back in, but a regular
     user can not.
     """
-    pass
+    transactionId = os.environ.get("transactionId", "")
+    admin_username, admin_auth_token = os.environ['admin_username'], os.environ['admin_auth_token']
+    reg_username, reg_auth_token = os.environ['reg_username'], os.environ['reg_auth_token']
+
+    # Invalid scenario: regular users can not check items back in (...yet)
+    regular_user_result = client.execute(checkin_item % (reg_username, reg_auth_token,
+                                                         transactionId, item_name))
+    assert 'must be an authenticated administrator' in regular_user_result['errors'][0]['message']
+
+    # Valid scenario : administrators can always check items back in
+    admin_user_result = client.execute(checkin_item % (admin_username, admin_auth_token,
+                                                       transactionId, item_name))
+    assert admin_user_result['data']['checkInItem']['transactions'][0]['returned']
 
 
 def test_authentication__login_user(clear_db, create_user_account, create_admin_account):

@@ -86,3 +86,41 @@ mutation{
   }
 }
 '''
+
+accept_checkout = '''
+mutation{
+  acceptCheckoutRequest(userAcceptedName:"%s", authToken: "%s", userRequestedId: "%s", transactionId: "%s", item: "%s"){
+    transactions{
+      id,
+      userAccepted,
+      dateAccepted
+    }
+  }
+}
+
+'''
+
+show_transactions = '''
+mutation{
+  showTransactions(username:"%s", authToken: "%s"){
+    transactions{
+      id,
+      userRequestedId,
+      userAccepted
+    }
+  }
+}
+'''
+
+checkin_item = '''
+mutation{
+  checkInItem(adminName:"%s", authToken: "%s", transactionId: "%s", item: "%s"){
+    transactions{
+      id,
+      userRequestedId,
+      userAccepted,
+      returned
+    }
+  }
+}
+'''
