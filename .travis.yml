@@ -1,0 +1,11 @@
+language: python
+python:
+  - "3.6"
+services:
+  - mysql
+install:
+  - pip install -r backend/requirements.txt
+script:
+  - cd backend/
+  - python setup.py
+  - pytest tests
