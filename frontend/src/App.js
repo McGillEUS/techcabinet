@@ -11,8 +11,8 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import { withStyles } from '@material-ui/core/styles';
 
-import { SimpleTable, SimpleTextField } from './components'
-import { tableStyles, textBoxStyles } from './styles'
+import { SimpleTable, SimpleTextField, Alerts } from './components'
+import { tableStyles, textBoxStyles, alertStyles } from './styles'
 import { GET_ITEMS } from './requests'
 
 import './App.css';
@@ -34,6 +34,7 @@ SimpleTable.propTypes = {
 
 const RentalTable = withStyles(tableStyles)(SimpleTable);
 const SimpleStyledTextField = withStyles(textBoxStyles)(SimpleTextField);
+const AlertNotifications = withStyles(alertStyles)(Alerts);
 
 // Create main component for the application
 class App extends Component {
@@ -45,6 +46,7 @@ class App extends Component {
   * `authToken`: Authentication token used for performing back-end queries
   * `username`: Username associated with the token. Mismatching username/token = invalid authentication
   * `authErrors`: Simple string used for showing users authentication errors they might encounter.
+  * `errors`: Generic errors from any other action.
   * `loading`: Used to ensure the state is properly loaded before rendering the page so children of `App` can access it.
   */
   constructor(props) {
@@ -56,6 +58,7 @@ class App extends Component {
       authToken: "",
       username: "",
       authErrors: "",
+      errors: "",
       loading: true
     };
 
@@ -111,7 +114,10 @@ class App extends Component {
     axiosGraphQL
     .post('', { query: GET_TRANSACTIONS })
     .then(results => {this.setState({transactions: results.data.data.showTransactions.transactions})},
-          error => {console.log(error)});
+          error => {
+            console.log(error);
+            this.setState({errors: "Couldn't load all transactions."})
+          });
   }
 
   /**
@@ -143,8 +149,21 @@ class App extends Component {
     `
     axiosGraphQL
     .post('', { query: CHECKOUT_ITEM })
-    .then(results => {this.setState({results: results.data.data.checkOutItem.items}); window.location.reload();},
-          error => {console.log(error); console.log(CHECKOUT_ITEM);});
+    .then(
+      results => {
+        if (results.data.errors.length > 0){
+          this.setState({errors: `Checkout request unsuccessful. ${results.data.errors[0].message}`});
+        }
+        else{
+          this.setState({results: results.data.data.checkOutItem.items});
+          window.location.reload();
+        }
+      },
+      error => {
+        console.log(error);
+        console.log(CHECKOUT_ITEM);
+        this.setState({errors: `Couldn't check out ${itemName}`});
+      });
   }
 
   /**
@@ -176,8 +195,19 @@ class App extends Component {
   `;
     axiosGraphQL
       .post('', { query: ACCEPT_CHECKOUT_REQUEST} )
-      .then(results => {this.setState({transactions: results.data.data.acceptCheckoutRequest.transactions})},
-            error => {console.log(error); console.log(ACCEPT_CHECKOUT_REQUEST)});
+      .then(results => {
+        if (results.data.errors.length > 0){
+          this.setState({errors: `Couldn't accept checkout request. ${results.data.errors[0].message}`});
+        }
+        else{
+          this.setState({transactions: results.data.data.acceptCheckoutRequest.transactions});
+        }
+      },
+      error => {
+        console.log(error);
+        console.log(ACCEPT_CHECKOUT_REQUEST);
+        this.setState({errors: `Couldn't accept check out for ${item}`});
+      });
   }
 
   /**
@@ -207,8 +237,20 @@ class App extends Component {
   `;
     axiosGraphQL
       .post('', { query: CHECKIN_ITEM} )
-      .then(results => {this.setState({transactions: results.data.data.checkInItem.transactions})},
-            error => {console.log(error); console.log(CHECKIN_ITEM)});
+      .then(
+        results => {
+          if (results.data.errors.length > 0){
+            this.setState({errors: `Couldn't request check in. ${results.data.errors[0].message}`});
+          }
+          else{
+            this.setState({transactions: results.data.data.checkInItem.transactions})
+          }
+        },
+        error => {
+          console.log(error);
+          console.log(CHECKIN_ITEM);
+          this.setState({errors: `Couldn't check in ${item}`});
+        });
   }
 
   /**
@@ -232,7 +274,11 @@ class App extends Component {
     axiosGraphQL
     .post('', { query: CREATE_ITEM} )
     .then(results => {console.log(results); this.setState({results: results.data.data.createItem.items})},
-          error => {console.log(error); console.log(CREATE_ITEM)});
+          error => {
+            console.log(error);
+            console.log(CREATE_ITEM);
+            this.setState({errors: `Couldn't create ${item}`});
+          });
   }
 
   /**
@@ -256,7 +302,11 @@ class App extends Component {
     axiosGraphQL
     .post('', { query: DELETE_ITEM })
     .then(results => {this.setState({results: results.data.data.deleteItem.items})},
-          error => {console.log(error); console.log(DELETE_ITEM);});
+          error => {
+            console.log(error);
+            console.log(DELETE_ITEM);
+            this.setState({errors: `Couldn't delete ${item}`});
+          });
   }
 
   /**
@@ -276,7 +326,12 @@ class App extends Component {
     axiosGraphQL
     .post('', { query: VALIDATE_TOKEN })
     .then(result => {this.updateAuthenticatedState(authToken, username, result.data.data.validateToken.valid)},
-          error => {console.log(VALIDATE_TOKEN); console.log(error); this.setState({loading: false});});
+          error => {
+            console.log(VALIDATE_TOKEN);
+            console.log(error);
+            this.setState({loading: false});
+            this.setState({errors: "You have logged out."});
+          });
   }
 
   /**
@@ -356,6 +411,12 @@ class App extends Component {
     }
     return (
       <div className="App">
+        <div className="errors" style={{display: this.state.errors.trim() === "" ? 'none' : 'block' }}>
+          <AlertNotifications
+            variant="error"
+            message={this.state.errors}
+          />
+        </div>
         <header className="App-header">
             <div className="logo">
               <img src={logo} className="App-logo" alt="logo" />
@@ -366,10 +427,10 @@ class App extends Component {
                                      label="Log In" type="password" onClickEvent={this.logIn}/>
             </div>
             <div className="welcome" style={{display: this.state.tokenValidity > 0 ? "block" : "none" }}>
-            <p> Welcome, {this.state.username}! </p>
-            <Button variant="contained" onClick={(e) => this.logOut()}>
-              Log Out
-            </Button>
+              <p> Welcome, {this.state.username}! </p>
+              <Button variant="contained" onClick={(e) => this.logOut()}>
+                Log Out
+              </Button>
             </div>
         </header>
         <div className="container">

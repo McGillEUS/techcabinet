@@ -1,18 +1,21 @@
-import React, { Component } from 'react';
-import TextField from '@material-ui/core/TextField';
-import Paper from '@material-ui/core/Paper';
+import React from 'react';
+import Button from '@material-ui/core/Button';
+import clsx from 'clsx';
+import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
-import Button from '@material-ui/core/Button';
+import ErrorIcon from '@material-ui/icons/Error';
+import Paper from '@material-ui/core/Paper';
+import SnackbarContent from '@material-ui/core/SnackbarContent';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
-
+import TextField from '@material-ui/core/TextField';
 
 /**
  * Dialog screen displayed when a user checks out an item and is logged out.
@@ -369,4 +372,24 @@ class SimpleTextField extends React.Component {
     }
 }
 
-export { SimpleTable, SimpleTextField }
+class Alerts extends React.Component {
+  render() {
+    const { className, message, variant } = this.props;
+    const Icon = variant == 'success' ? CheckCircleIcon : ErrorIcon;
+
+    return (
+      <SnackbarContent
+        className={clsx(this.props.classes[variant], className)}
+        aria-describedby="client-snackbar"
+        message={
+          <span id="client-snackbar" className={this.props.classes.message}>
+            <Icon className={clsx(this.props.classes.icon, this.props.classes.iconVariant)} />
+            {message}
+          </span>
+        }
+      />
+    )
+  }
+}
+
+export { SimpleTable, SimpleTextField, Alerts }

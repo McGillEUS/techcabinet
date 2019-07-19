@@ -7,7 +7,7 @@
 }
 
 .App-header {
-  background: url(white-waves.png) repeat 0 0;
+  background: #ffeded;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
@@ -15,7 +15,7 @@
   padding: 10px;
   font-size: 25px;
   border-bottom: solid 2px;
-  color: rgb(0, 0, 0);
+  border-color: #bd3623;
 }
 
 .container{
@@ -30,7 +30,13 @@
 }
 
 .login, .welcome{
+  padding: 10px;
   margin-right: 25px;
+}
+
+.welcome p{
+  display: inline-block;
+  margin-right: 10px;
 }
 
 .App-link {
