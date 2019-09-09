@@ -14,6 +14,7 @@ import { withStyles } from '@material-ui/core/styles';
 import { SimpleTable, SimpleTextField, Alerts } from './components'
 import { tableStyles, textBoxStyles, alertStyles } from './styles'
 import { GET_ITEMS } from './requests'
+import { msalInstance } from './msal.js'
 
 import './App.css';
 
@@ -354,19 +355,27 @@ class App extends Component {
    * @param {string} password
    */
   logIn(username, password){
-    const LOGIN = `
-    mutation{
-      loginUser(username:"${username}", password:"${password}"){
-        authToken
+    const msalRequestScope = {
+      scopes: ["user.read"]
+    };
+/*
+    function authRedirectCallBack(error, response) {
+      if (error) {
+          console.log(error);
+      }
+      else {
+          if (response.tokenType === "access_token") {
+            console.log(response)
+          } else {
+              console.log("token type is:" + response.tokenType);
+          }
       }
     }
-    `
-    axiosGraphQL
-    .post('', { query: LOGIN })
-    .then(results => {this.handleLogInInfo(results, username)},
-          error => {console.log(LOGIN);
-                    console.log(error);
-                    this.setState({authErrors: "Invalid username or password."})});
+
+    msalInstance.handleRedirectCallback(authRedirectCallBack);
+    msalInstance.loginRedirect(msalRequestScope);
+*/
+   console.log(msalInstance.getAccount().name);
   }
 
   /**
