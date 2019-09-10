@@ -24,6 +24,10 @@ const axiosGraphQL = axios.create({
   headers: {}
 });
 
+const msalRequestScope = {
+  scopes: ["user.read"]
+};
+
 // Initialize basic components and specify which part of the front-end they belong to
 SimpleTextField.propTypes = {
   classes: PropTypes.object.isRequired,
@@ -314,9 +318,15 @@ class App extends Component {
    * Verify that a user's authentication token and username (from localstorage) are valid.
    */
   verifyAuthentication(){
-    const authToken = localStorage.getItem("authToken");
-    const username = localStorage.getItem("username");
-
+    const account = msalInstance.getAccount()
+    if (account) {
+      const authToken = Buffer.from(JSON.stringify(account.idToken)).toString("base64");
+      const username = account.userName
+      this.updateAuthenticatedState(authToken, username, true)
+    } else {
+      this.updateAuthenticatedState(null, null, false)
+    }
+    /*
     const VALIDATE_TOKEN = `
     mutation{
       validateToken(username: "${username}", authToken:"${authToken}"){
@@ -333,49 +343,30 @@ class App extends Component {
             this.setState({loading: false});
             this.setState({errors: "You have logged out."});
           });
+    */
   }
 
   /**
    * Updates the state when a token's validity is established
    * @param {string} authToken 
    * @param {string} username 
-   * @param {int} validityLevel: 0: Invalid, 1: User, 2: Administrator
+   * @param {boolean} isAdmin
    */
-  updateAuthenticatedState(authToken, username, validityLevel){
-    if (validityLevel > 0){
-      this.setState({authToken: authToken, username: username, tokenValidity: validityLevel});
-      this.getAllTransactions();
-    }
+  updateAuthenticatedState(authToken, username, isAdmin){
+    this.setState({authToken: authToken, username: username, isAdmin: isAdmin});
+    this.getAllTransactions();
     this.setState({loading: false});
   }
 
   /**
    * Allows user to log in
-   * @param {string} username
-   * @param {string} password
    */
-  logIn(username, password){
-    const msalRequestScope = {
-      scopes: ["user.read"]
-    };
-/*
-    function authRedirectCallBack(error, response) {
-      if (error) {
-          console.log(error);
-      }
-      else {
-          if (response.tokenType === "access_token") {
-            console.log(response)
-          } else {
-              console.log("token type is:" + response.tokenType);
-          }
-      }
-    }
-
-    msalInstance.handleRedirectCallback(authRedirectCallBack);
-    msalInstance.loginRedirect(msalRequestScope);
-*/
-   console.log(msalInstance.getAccount().name);
+  logIn(){
+    msalInstance.loginPopup(msalRequestScope)
+    .then(
+      response => { window.location.reload() },
+      error => { console.log(error) }
+    )
   }
 
   /**
@@ -383,35 +374,7 @@ class App extends Component {
    * In the backend, the valid token is blacklisted.
    */
   logOut(){
-    const LOGOUT = `
-    mutation{
-      logoutUser(authToken:"${this.state.authToken}"){
-        status
-      }
-    }
-    `
-    axiosGraphQL
-    .post('', { query: LOGOUT })
-    .then(result => {result.data.data.logoutUser.status === "success" ? this.setState({tokenValidity: 0}) : console.log("Failed to log out...");
-                     window.location.reload();},
-          error => {console.log(LOGOUT); console.log(error)});
-  }
-
-  /**
-   * When a user has logged in, this function updates the state and localstorage.
-   * @param {string} results: Authentication results from GraphQL query
-   * @param {string} username: Username used to produce the authentication results
-   */
-  handleLogInInfo(results, username){
-    if (results.data.data.loginUser != null){
-      localStorage.setItem("authToken", results.data.data.loginUser.authToken);
-      localStorage.setItem("username", username);
-      window.location.reload();
-    } else {
-      console.log("error");
-      this.setState({authErrors: "Invalid username or password."})
-      console.log(results);
-    }
+    msalInstance.logout()
   }
 
   render() {
@@ -431,11 +394,12 @@ class App extends Component {
               <img src={logo} className="App-logo" alt="logo" />
               <p>Tech Cabinet Rental Platform</p>
             </div>
-            <div className="login" style={{display: this.state.tokenValidity > 0 ? "none" : "block" }}>
-              <SimpleStyledTextField textFieldLabel1="username" textFieldLabel2="password" errors={this.state.authErrors}
-                                     label="Log In" type="password" onClickEvent={this.logIn}/>
+            <div className="login" style={{display: !this.state.username || !this.state.authToken ? "block" : "none" }}>
+              <Button variant="contained" onClick={(e) => this.logIn()}>
+                Log In
+              </Button>
             </div>
-            <div className="welcome" style={{display: this.state.tokenValidity > 0 ? "block" : "none" }}>
+            <div className="welcome" style={{display: this.state.username && this.state.authToken ? "block" : "none" }}>
               <p> Welcome, {this.state.username}! </p>
               <Button variant="contained" onClick={(e) => this.logOut()}>
                 Log Out
@@ -450,11 +414,11 @@ class App extends Component {
           <p>You are expected to return rented items within <b>five days</b> excluding week-ends.</p>
           <h1>Available Items</h1>
           <RentalTable tokenValidity={this.state.tokenValidity} results={this.state.results} deleteItem={this.deleteItem} requestItem={this.checkOutItem}/>
-          <div className="form" style={{display: this.state.tokenValidity > 1 ? "block" : "none" }}>
+          <div className="form" style={{display: this.state.username && this.state.authToken ? "block" : "none" }}>
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
           </div>
           <br></br>
-          <div className="transactions" style={{display: this.state.tokenValidity > 0 ? "block" : "none" }}>
+          <div className="transactions" style={{display: this.state.username && this.state.authToken > 0 ? "block" : "none" }}>
           <h1 style={{display: this.state.tokenValidity === 1 ? "block" : "none" }}> Your Requests </h1>
           <h1 style={{display: this.state.tokenValidity === 2 ? "block" : "none" }}> Request History </h1>
           <Table>

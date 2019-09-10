@@ -3,7 +3,7 @@ import * as Msal from "msal";
 const msalInstance = new Msal.UserAgentApplication({
   auth: {
     clientId: "",
-    authority: "",
+    authority: "https://login.microsoftonline.com",
     redirectUri: "http://localhost:3000/"
   },
   cache: {
