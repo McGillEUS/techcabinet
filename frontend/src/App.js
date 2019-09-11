@@ -61,7 +61,8 @@ class App extends Component {
       transactions: [],
       tokenValidity: 0,
       authToken: "",
-      username: "",
+      email: "",
+      name: "",
       authErrors: "",
       errors: "",
       loading: true
@@ -99,7 +100,7 @@ class App extends Component {
   getAllTransactions(){
     const GET_TRANSACTIONS = `
     mutation{
-    showTransactions(username: "${this.state.username}",
+    showTransactions(email: "${this.state.email}",
                      authToken: "${this.state.authToken}"){
       transactions{
         id,
@@ -116,7 +117,8 @@ class App extends Component {
     }
   }
   `;
-    axiosGraphQL
+  console.log(GET_TRANSACTIONS);
+  axiosGraphQL
     .post('', { query: GET_TRANSACTIONS })
     .then(results => {this.setState({transactions: results.data.data.showTransactions.transactions})},
           error => {
@@ -136,7 +138,7 @@ class App extends Component {
    * @param {string} studentID: (optional) Student ID for this user.
    */
   checkOutItem(itemName, quantity, username, password, email, studentID){
-    username = username || this.state.username;
+    username = username || this.state.email;
     password = password || "";
     email = email || "";
     studentID = studentID || "";
@@ -181,7 +183,7 @@ class App extends Component {
     const ACCEPT_CHECKOUT_REQUEST = `
     mutation{
       acceptCheckoutRequest(userRequestedId: "${userRequestedId}", transactionId: "${transactionId}",
-                            userAcceptedName: "${this.state.username}", item: "${item}",
+                            userAcceptedName: "${this.state.email}", item: "${item}",
                             authToken: "${this.state.authToken}"){
         transactions{
           id,
@@ -224,7 +226,7 @@ class App extends Component {
     const CHECKIN_ITEM = `
     mutation{
       checkInItem(item: "${item}", transactionId: "${transactionId}",
-                  adminName: "${this.state.username}", authToken: "${this.state.authToken}"){
+                  adminName: "${this.state.email}", authToken: "${this.state.authToken}"){
         transactions{
           id,
           accepted,
@@ -266,7 +268,7 @@ class App extends Component {
   createItem(item, quantity){
     const CREATE_ITEM = `
     mutation{
-      createItem(authToken: "${this.state.authToken}", username: "${this.state.username}",
+      createItem(authToken: "${this.state.authToken}", email: "${this.state.email}",
                  itemName: "${item}", quantity: ${quantity}){
         items{
           name,
@@ -294,7 +296,7 @@ class App extends Component {
     const DELETE_ITEM = `
       mutation{
         deleteItem(itemName: "${item}", authToken: "${this.state.authToken}",
-                   username:"${this.state.username}"){
+                   email:"${this.state.email}"){
           items{
             name,
             dateIn,
@@ -321,29 +323,10 @@ class App extends Component {
     const account = msalInstance.getAccount()
     if (account) {
       const authToken = Buffer.from(JSON.stringify(account.idToken)).toString("base64");
-      const username = account.userName
-      this.updateAuthenticatedState(authToken, username, true)
+      this.updateAuthenticatedState(authToken, account.userName, account.name)
     } else {
-      this.updateAuthenticatedState(null, null, false)
+      this.updateAuthenticatedState()
     }
-    /*
-    const VALIDATE_TOKEN = `
-    mutation{
-      validateToken(username: "${username}", authToken:"${authToken}"){
-        valid
-      }
-    }
-    `
-    axiosGraphQL
-    .post('', { query: VALIDATE_TOKEN })
-    .then(result => {this.updateAuthenticatedState(authToken, username, result.data.data.validateToken.valid)},
-          error => {
-            console.log(VALIDATE_TOKEN);
-            console.log(error);
-            this.setState({loading: false});
-            this.setState({errors: "You have logged out."});
-          });
-    */
   }
 
   /**
@@ -352,9 +335,9 @@ class App extends Component {
    * @param {string} username 
    * @param {boolean} isAdmin
    */
-  updateAuthenticatedState(authToken, username, isAdmin){
-    this.setState({authToken: authToken, username: username, isAdmin: isAdmin});
-    this.getAllTransactions();
+  updateAuthenticatedState(authToken=null, email=null, name=null){
+    this.setState({authToken: authToken, email: email, name: name});
+    //this.getAllTransactions();
     this.setState({loading: false});
   }
 
@@ -394,13 +377,13 @@ class App extends Component {
               <img src={logo} className="App-logo" alt="logo" />
               <p>Tech Cabinet Rental Platform</p>
             </div>
-            <div className="login" style={{display: !this.state.username || !this.state.authToken ? "block" : "none" }}>
+            <div className="login" style={{display: !this.state.email || !this.state.authToken ? "block" : "none" }}>
               <Button variant="contained" onClick={(e) => this.logIn()}>
                 Log In
               </Button>
             </div>
-            <div className="welcome" style={{display: this.state.username && this.state.authToken ? "block" : "none" }}>
-              <p> Welcome, {this.state.username}! </p>
+            <div className="welcome" style={{display: this.state.email && this.state.authToken ? "block" : "none" }}>
+              <p> Welcome, {this.state.name}! </p>
               <Button variant="contained" onClick={(e) => this.logOut()}>
                 Log Out
               </Button>
@@ -414,11 +397,11 @@ class App extends Component {
           <p>You are expected to return rented items within <b>five days</b> excluding week-ends.</p>
           <h1>Available Items</h1>
           <RentalTable tokenValidity={this.state.tokenValidity} results={this.state.results} deleteItem={this.deleteItem} requestItem={this.checkOutItem}/>
-          <div className="form" style={{display: this.state.username && this.state.authToken ? "block" : "none" }}>
+          <div className="form" style={{display: this.state.email && this.state.authToken ? "block" : "none" }}>
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
           </div>
           <br></br>
-          <div className="transactions" style={{display: this.state.username && this.state.authToken > 0 ? "block" : "none" }}>
+          <div className="transactions" style={{display: this.state.email && this.state.authToken > 0 ? "block" : "none" }}>
           <h1 style={{display: this.state.tokenValidity === 1 ? "block" : "none" }}> Your Requests </h1>
           <h1 style={{display: this.state.tokenValidity === 2 ? "block" : "none" }}> Request History </h1>
           <Table>

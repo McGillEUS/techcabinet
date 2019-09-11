@@ -154,12 +154,6 @@ class RequestDialog extends React.Component{
           <Button onClick={this.props.closeDialogAction} color="primary">
             Cancel
           </Button>
-          <Button onClick={() => {this.props.submitDialogAction(this.state.quantity, this.state.name,
-                                                                this.state.password, this.state.email,
-                                                                this.state.studentid);}}
-                  color="primary">
-            Submit
-          </Button>
           {this.deleteButton}
         </DialogActions>
       </Dialog>
@@ -184,7 +178,6 @@ class SimpleTable extends React.Component {
         'student_id': '', 'quantity': ''}
       };
       this.closeDialog = this.closeDialog.bind(this);
-      this.submitDialog = this.submitDialog.bind(this);
       this.deleteDialog = this.deleteDialog.bind(this);
     }
 
@@ -202,85 +195,6 @@ class SimpleTable extends React.Component {
     closeDialog(){
       this.setState({dialogVisible: false});
     }
-    
-    /**
-     * Simple e-mail validator matching input to a regex.
-     * Credit for regex: https://stackoverflow.com/questions/46155/how-to-validate-an-email-address-in-javascript
-     * @param {string} email 
-     */
-    validateEmail(email) {
-      const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-      return re.test(String(email).toLowerCase());
-    }
-
-    /**
-     * Handler for clicking "submit" button in the request dialog
-     * More information on this function can be found in the function `checkOutItem`
-     * from `App.js`.
-     * @param {int} quantity 
-     * @param {string} username 
-     * @param {string} password 
-     * @param {string} email 
-     * @param {string} studentID 
-     */
-    submitDialog(quantity, username, password, email, studentID){
-      // By default, input is valid and the errors match what is currently in the state.
-      let validInput = true;
-      let errors = this.state.errors
-
-      // We always reset the error to empty by default, then update it if the input is erroneous.
-      // First, validate quantity (this is relevant to users logged in and out)
-      errors['quantity'] = "";
-      if (quantity <= 0){
-        errors['quantity'] = "Quantity must be greater than zero.";
-        validInput = false;
-      }
-      // If the input is valid and the user is logged in, submit the request
-      if (this.props.tokenValidity > 0 && validInput){
-          this.props.requestItem(this.state.item, quantity);
-      } else {
-        // User is logged out
-        // Verify that the username is valid
-        errors['username'] = "";
-        if (!username || username.length <= 0 || username.length > 100){
-          errors['username'] = "You must input a username between 0 and 100 characters.";
-          validInput = false;
-        }
-
-        // Verify that a password has been given
-        errors['password'] = "";
-        if(!password){
-          errors['password'] = "You must input a password.";
-          validInput = false;
-        }
-
-        // Verify that a valid e-mail has been provided
-        errors['email'] = "";
-        if(!email || !this.validateEmail(email)){
-          errors['email'] = "You have inputted an invalid email.";
-          validInput = false;
-        }
-
-        // Verify that a valid student ID has been provided
-        errors['student_id'] = "";
-        if(!studentID || studentID.length <= 5 || isNaN(studentID)){
-          errors['student_id'] = "Your student ID should be a 6-7 digit number.";
-          validInput = false;
-        }
-
-        // Update state to display errors and request item if the input is valid.
-        this.setState({errors: errors});
-        if (validInput){
-          this.props.requestItem(this.state.item, quantity, username,
-            password, email, studentID);
-        }
-      }
-      
-      // Hide the dialog if the item has been successfully requested
-      if (validInput){
-        this.setState({dialogVisible: false});
-      }
-    }
 
     // Handler for clicking "delete" button in the request dialog
     deleteDialog(){
@@ -292,7 +206,7 @@ class SimpleTable extends React.Component {
       return (
         <Paper className={this.props.classes.root}>
           <RequestDialog tokenValidity={this.props.tokenValidity} visible={this.state.dialogVisible} item={this.state.item}
-                         closeDialogAction={this.closeDialog} submitDialogAction={this.submitDialog} deleteDialogAction={this.deleteDialog}
+                         closeDialogAction={this.closeDialog} deleteDialogAction={this.deleteDialog}
                          errors={this.state.errors}/>
           <Table className={this.props.classes.table}>
             <TableHead>
