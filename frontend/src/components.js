@@ -27,67 +27,9 @@ class LoggedOutDialog extends React.Component{
     return(
       <DialogContent>
         <DialogContentText>
-          You are checking out: "<b>{this.props.item}</b>".<br></br>
-          Please fill the information below to create an account.<br></br>
-          If you have already created an account, please log in.<br></br>
-          Once your request is submitted, you can log in to track your requests.<br></br>
+          Please log in to create a reservation.<br></br>
           If you have any issues, please contact <b>it.director@mcgilleus.ca</b> for support.
         </DialogContentText>
-        <TextField
-          autoFocus
-          margin="dense"
-          id="email"
-          label="Email Address"
-          type="email"
-          helperText={this.props.errors['email']}
-          error={this.props.errors['email'].length > 0}
-          fullWidth
-          onChange={this.props.handleChange('email')}
-        />
-        <TextField
-          autoFocus
-          margin="dense"
-          id="name"
-          label="Username"
-          type="name"
-          helperText={this.props.errors['username']}
-          error={this.props.errors['username'].length > 0}
-          fullWidth
-          onChange={this.props.handleChange('name')}
-        />
-        <TextField
-          autoFocus
-          margin="dense"
-          id="password"
-          label="Password"
-          type="password"
-          helperText={this.props.errors['password']}
-          error={this.props.errors['password'].length > 0}
-          fullWidth
-          onChange={this.props.handleChange('password')}
-        />
-        <TextField
-          autoFocus
-          margin="dense"
-          id="id"
-          label="Student ID"
-          type="id"
-          helperText={this.props.errors['student_id']}
-          error={this.props.errors['student_id'].length > 0}
-          fullWidth
-          onChange={this.props.handleChange('studentid')}
-        />
-        <TextField
-          autoFocus
-          margin="dense"
-          id="id"
-          label="Quantity"
-          type="id"
-          helperText={this.props.errors['quantity']}
-          error={this.props.errors['quantity'].length > 0}
-          fullWidth
-          onChange={this.props.handleChange('quantity')}
-        />
       </DialogContent>
     )
   }
@@ -110,11 +52,22 @@ class LoggedInDialog extends React.Component{
           margin="dense"
           id="id"
           helperText={this.props.errors['quantity']}
-          error={this.props.errors['quantity'].length === 0}
+          error={this.props.errors['quantity'].length > 0}
           label="Quantity"
-          type="id"
+          type="integer"
           fullWidth
           onChange={this.props.handleChange('quantity')}
+        />
+        <TextField
+          autoFocus
+          margin="dense"
+          id="id"
+          helperText={this.props.errors['student_id']}
+          error={this.props.errors['student_id'].length > 0}
+          label="Student ID"
+          type="id"
+          fullWidth
+          onChange={this.props.handleChange('studentId')}
         />
       </DialogContent>
     )
@@ -127,10 +80,7 @@ class LoggedInDialog extends React.Component{
  */
 class RequestDialog extends React.Component{
     state = {
-      name: '',
-      email: '',
-      password: '',
-      studentid: '',
+      studentId: '',
       quantity: ''
     };
 
@@ -140,10 +90,12 @@ class RequestDialog extends React.Component{
       });
     };
 
-    dialog = (item) => this.props.tokenValidity > 0 ? <LoggedInDialog item={item} errors={this.props.errors} handleChange={this.handleChange}/>
-                                                    : <LoggedOutDialog item={item} errors={this.props.errors} handleChange={this.handleChange}/>;
+    dialog = (item) => this.props.tokenValidity > 0 ? <LoggedInDialog item={item} errors={this.props.errors} handleChange={this.handleChange} />
+                                                    : <LoggedOutDialog item={item} />;
     deleteButton = this.props.tokenValidity > 1 ? <Button onClick={this.props.deleteDialogAction} color="primary"> Delete </Button>
                                                 : null;
+    submitButton = this.props.tokenValidity > 0 ? <Button onClick={() => {this.props.submitDialogAction(this.state.quantity, this.state.studentId);}} color="primary">Submit</Button>
+                                            : null;
 
     render(){
       return(
@@ -155,6 +107,7 @@ class RequestDialog extends React.Component{
             Cancel
           </Button>
           {this.deleteButton}
+          {this.submitButton}
         </DialogActions>
       </Dialog>
       )
@@ -179,6 +132,7 @@ class SimpleTable extends React.Component {
       };
       this.closeDialog = this.closeDialog.bind(this);
       this.deleteDialog = this.deleteDialog.bind(this);
+      this.submitDialog = this.submitDialog.bind(this);
     }
 
     /**
@@ -187,6 +141,50 @@ class SimpleTable extends React.Component {
      */
     handleClick(name){
       this.setState({dialogVisible: true, item: name});
+    }
+
+     /**
+     * Handler for clicking "submit" button in the request dialog
+     * More information on this function can be found in the function `reserveItem`
+     * from `App.js`.
+     * @param {int} quantity
+     * @param {string} studentId
+     */
+    submitDialog(quantity, studentId){
+      if (!this.state.dialogVisible){
+        return;
+      }
+      // By default, input is valid and the errors match what is currently in the state.
+      let validInput = true;
+      let errors = this.state.errors
+
+      // We always reset the error to empty by default, then update it if the input is erroneous.
+      // First, validate quantity (this is relevant to users logged in and out)
+      errors['quantity'] = "";
+      errors['student_id'] = "";
+
+      if (quantity <= 0){
+        errors['quantity'] = "Quantity must be greater than zero.";
+        validInput = false;
+      }
+
+      // Verify that a valid student ID has been provided
+      errors['student_id'] = "";
+      if(!studentId || studentId.length <= 5 || isNaN(studentId)){
+        errors['student_id'] = "Your student ID should be a 6 digit number.";
+        validInput = false;
+      }
+
+      // Update state to display errors and request item if the input is valid.
+      this.setState({errors: errors});
+      if (validInput){
+        this.props.reserveItem(this.state.item, quantity, studentId);
+      }
+
+      // Hide the dialog if the item has been successfully requested
+      if (validInput){
+        this.setState({dialogVisible: false});
+      }
     }
 
     /**
@@ -207,7 +205,7 @@ class SimpleTable extends React.Component {
         <Paper className={this.props.classes.root}>
           <RequestDialog tokenValidity={this.props.tokenValidity} visible={this.state.dialogVisible} item={this.state.item}
                          closeDialogAction={this.closeDialog} deleteDialogAction={this.deleteDialog}
-                         errors={this.state.errors}/>
+                         submitDialogAction={this.submitDialog} errors={this.state.errors}/>
           <Table className={this.props.classes.table}>
             <TableHead>
               <TableRow>
@@ -238,7 +236,7 @@ class SimpleTable extends React.Component {
 }
 
 /**
- * Generic text field, that is reused for the Login form and the item creation form.
+ * Generic text field, that is reused for the item creation form.
  * Simply contains two text fields and a button.
  */
 class SimpleTextField extends React.Component {

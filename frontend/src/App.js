@@ -173,36 +173,35 @@ class App extends Component {
       .post('', { query: RESERVE_ITEM })
       .then(
         results => {
-          if (results.data.errors.length > 0){
+          if (results.data.errors && results.data.errors.length > 0){
             this.setState({errors: `Checkout request unsuccessful. ${results.data.errors[0].message}`});
           }
           else{
-            this.setState({results: results.data.data.checkOutItem.items});
+            this.setState({results: results.data.data.reserveItem.items});
             window.location.reload();
           }
         },
         error => {
-          this.setState({errors: `Couldn't check out ${itemName}. Full error: ${error}`});
+          this.setState({errors: `Couldn't check out ${itemName}. ${error}`});
         }
       );
   }
 
   /**
    * Administrators accept the reservations of normal users & check out the item
-   * @param {string} userRequestedId: Student ID of user who created the checkout request
    * @param {string} transactionId: ID of the transaction being accepted
    * @param {string} item: Name of the item getting checked out
    */
-  checkOutItem(userRequestedId, transactionId, item) {
+  checkOutItem(transactionId, item) {
     const ACCEPT_CHECKOUT_REQUEST = `
     mutation{
-      acceptCheckoutRequest(transactionId: "${transactionId}", item: "${item}",
-                            adminEmail: "${this.state.email}", authToken: "${this.state.authToken}"){
+      checkOutItem(transactionId: "${transactionId}", item: "${item}",
+                   adminEmail: "${this.state.email}", authToken: "${this.state.authToken}"){
         transactions{
           id,
           accepted,
           returned,
-          userAccepted,
+          adminAccepted,
           userRequestedId,
           requestedQuantity,
           dateAccepted,
@@ -218,15 +217,15 @@ class App extends Component {
     .post('', { query: ACCEPT_CHECKOUT_REQUEST} )
     .then(
       results => {
-        if (results.data.errors.length > 0){
+        if (results.data.errors && results.data.errors.length > 0){
           this.setState({errors: `Couldn't accept checkout request. ${results.data.errors[0].message}`});
         }
         else{
-          this.setState({transactions: results.data.data.acceptCheckoutRequest.transactions});
+          this.setState({transactions: results.data.data.checkOutItem.transactions});
         }
       },
       error => {
-        this.setState({errors: `Couldn't accept check out for ${item}. Full error: ${error}`});
+        this.setState({errors: `Couldn't accept check out for ${item}. ${error}`});
       }
     );
   }
@@ -245,7 +244,7 @@ class App extends Component {
           id,
           accepted,
           returned,
-          userAccepted,
+          adminAccepted,
           userRequestedId,
           requestedQuantity,
           dateAccepted,
@@ -261,7 +260,7 @@ class App extends Component {
     .post('', { query: CHECKIN_ITEM} )
     .then(
       results => {
-        if (results.data.errors.length > 0){
+        if (results.data.errors && results.data.errors.length > 0){
           this.setState({errors: `Couldn't request check in. ${results.data.errors[0].message}`});
         }
         else{
@@ -298,7 +297,7 @@ class App extends Component {
   axiosGraphQL
     .post('', { query: CREATE_ITEM} )
     .then(
-      results => {console.log(results); this.setState({results: results.data.data.createItem.items})},
+      results => {this.setState({results: results.data.data.createItem.items})},
       error => {
         console.log(error);
         console.log(CREATE_ITEM);
@@ -384,7 +383,7 @@ class App extends Component {
       },
       error => {
         console.log(error);
-        this.setState({loading: false});
+        this.setState({errors: `Couldn't log in. ${error}`, loading: false});
       }
     );
   }
@@ -425,12 +424,12 @@ class App extends Component {
               <img src={logo} className="App-logo" alt="logo" />
               <p>Tech Cabinet Rental Platform</p>
             </div>
-            <div className="login" style={{display: this.state.authLevel === 0 ? "block" : "none" }}>
+            <div className="login" style={{display: !this.state.email && !this.state.authToken ? "block" : "none" }}>
               <Button variant="contained" onClick={(e) => this.logIn()}>
                 Log In
               </Button>
             </div>
-            <div className="welcome" style={{display: this.state.authLevel !== 0 ? "block" : "none" }}>
+            <div className="welcome" style={{display: this.state.email && this.state.authToken ? "block" : "none" }}>
               <p> Welcome, {this.state.name}! </p>
               <Button variant="contained" onClick={(e) => this.logOut()}>
                 Log Out
@@ -444,7 +443,7 @@ class App extends Component {
           <p>Please contact Chris in the EUS Office (<b>McConnell room 7</b>) to collect your item.</p>
           <p>You are expected to return rented items within <b>five days</b> excluding week-ends.</p>
           <h1>Available Items</h1>
-          <RentalTable tokenValidity={this.state.authLevel} results={this.state.results} deleteItem={this.deleteItem} requestItem={this.checkOutItem}/>
+          <RentalTable tokenValidity={this.state.authLevel} results={this.state.results} deleteItem={this.deleteItem} reserveItem={this.reserveItem}/>
           <div className="form" style={{display: this.state.email && this.state.authToken ? "block" : "none" }}>
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
           </div>
@@ -477,10 +476,10 @@ class App extends Component {
                   <TableCell align="true">{row.dateReturned}</TableCell>
                   <TableCell align="true">{row.requestedQuantity}</TableCell>
                   <TableCell align="true">{row.accepted ? "Yes" : "No"}</TableCell>
-                  <TableCell align="true">{row.userAccepted}</TableCell>
+                  <TableCell align="true">{row.adminAccepted}</TableCell>
                   {this.state.authLevel > 1 ?
                   <TableCell align="true">
-                    {!row.accepted ? <Button onClick={() => this.acceptCheckoutRequest(row.userRequestedId, row.id, row.item) }>Accept</Button> : null}
+                    {!row.accepted ? <Button onClick={() => this.checkOutItem(row.id, row.item) }>Accept</Button> : null}
                     {row.accepted && !row.returned ? <Button onClick={() => {this.checkInItem(row.item, row.id);}} >Check In</Button> : null}
                   </TableCell>
                   : null

@@ -7,7 +7,6 @@ import json
 import os
 import requests
 from tables import Item, Transaction, Admin
-from time import time
 
 from utils import db
 
@@ -176,7 +175,7 @@ class ReserveItem(graphene.Mutation):
             user_requested_email=email,
             requested_quantity=quantity,
             item=item.name,
-            date_requested=time_now,
+            date_requested=datetime.now(),
             accepted=False
         )
 
@@ -205,6 +204,8 @@ class CheckOutItem(graphene.Mutation):
     transactions = graphene.List(TransactionObject)
 
     def mutate(self, _, transaction_id, item, admin_email, auth_token):
+        _, transaction_id = from_global_id(transaction_id)
+
         validate_authentication(admin_email, auth_token, admin=True)
 
         admin_accepting = Admin.query.filter_by(email=admin_email).first()
@@ -216,6 +217,7 @@ class CheckOutItem(graphene.Mutation):
 
         # Find the transaction associated with the user's checkout request
         transaction = Transaction.query.filter_by(id=transaction_id).first()
+
         if not transaction:
             raise Exception("No such transaction found...")
 
@@ -246,10 +248,11 @@ class CheckInItem(graphene.Mutation):
 
     transactions = graphene.List(TransactionObject)
 
-    def mutate(self, _, item, transaction_id, admin_name, auth_token):
-        validate_authentication(user, auth_token, admin=True)
+    def mutate(self, _, item, transaction_id, admin_email, auth_token):
+        validate_authentication(admin_email, auth_token, admin=True)
 
         # Check the item back in
+        _, transaction_id = from_global_id(transaction_id)
         transaction = Transaction.query.filter_by(id=transaction_id).first()
         item = Item.query.filter_by(name=item).first()
         transaction.returned = True
@@ -327,9 +330,9 @@ class Query(graphene.ObjectType):
 
 
 def validate_authentication(email, auth_token, admin=False):
-    if admin and auth_level(email, auth_token) != 2:
+    if admin and auth_level(email, auth_token) < 2:
         raise Exception(err_auth_admin)
-    if auth_level(email, auth_token) != 1:
+    if auth_level(email, auth_token) < 1:
         raise Exception(err_auth)
 
 
