@@ -1,4 +1,7 @@
 # Tech Cabinet
+
+[![Build Status](https://travis-ci.org/McGillEUS/techcabinet.svg?branch=master)](https://travis-ci.org/McGillEUS/techcabinet)
+
 Rental system for the EUS' tech cabinet! :package:
 
 It is currently deployed here: https://rental.mcgilleus.ca/
