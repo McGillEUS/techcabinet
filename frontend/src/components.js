@@ -289,7 +289,7 @@ class SimpleTextField extends React.Component {
 class Alerts extends React.Component {
   render() {
     const { className, message, variant } = this.props;
-    const Icon = variant == 'success' ? CheckCircleIcon : ErrorIcon;
+    const Icon = variant === 'success' ? CheckCircleIcon : ErrorIcon;
 
     return (
       <SnackbarContent

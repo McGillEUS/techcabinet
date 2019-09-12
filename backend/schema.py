@@ -136,29 +136,27 @@ class ReserveItem(graphene.Mutation):
     This creates a reservation which needs to be approved by an administrator when the item is checked out.
 
     Arguments:
-    requested_by: Name of the person requestion to check out an item
-    email: Email of the same person
+    email: Email of the person requesting the item
     student_id: Student ID of the same person
+    auth_token: Token used to authenticate
     quantity: Quantity of the item requested
     item_name: Name of the item requested from the inventory
     """
     class Arguments:
-        requested_by = graphene.String(required=True)
-        quantity = graphene.Int(required=True)
-        item_name = graphene.String(required=True)
-        auth_token = graphene.String(required=False)
         email = graphene.String()
         student_id = graphene.String()
-        password = graphene.String()
+        auth_token = graphene.String(required=False)
+        quantity = graphene.Int(required=True)
+        item_name = graphene.String(required=True)
 
     items = graphene.List(ItemObject)
 
-    def mutate(self, _, requested_by, quantity, item_name, auth_token, email, student_id, password):
+    def mutate(self, _, email, student_id, auth_token, quantity, item_name):
         # Verify that the quantity the user wishes to check out is valid
         if quantity < 0:
             raise Exception("Positive quantities only.") 
 
-        validate_authentication(user, auth_token)
+        validate_authentication(email, auth_token)
 
         # Find the item the user requests
         item = Item.query.filter_by(name=item_name).first()
@@ -168,10 +166,11 @@ class ReserveItem(graphene.Mutation):
         # Validate that the item is available in sufficient quantities
         if item.quantity - quantity < 0:
             db.session.commit()
-            raise Exception("Item not available.")
+            raise Exception("Item not available in sufficient quantities.")
 
         # Update the item's state as it is requested
         item.quantity -= quantity
+
         transaction = Transaction(
             user_requested_id=student_id,
             user_requested_email=email,
@@ -180,6 +179,7 @@ class ReserveItem(graphene.Mutation):
             date_requested=time_now,
             accepted=False
         )
+
         db.session.add(transaction)
         db.session.commit()
         items = Item.query.all()
@@ -191,14 +191,12 @@ class CheckOutItem(graphene.Mutation):
     Authenticated administrator users are able to accept a request to check out items.
 
     Arguments:
-    user_requested_id: ID of the user requesting an item
     transaction_id: ID of the transaction that took place to reserve the item
     item: Name of the item being requested.
     admin_email: Email of the administrator accepting a checkout request
     auth_token: Authentication token associated to the administrator user.
     """
     class Arguments:
-        user_requested_id = graphene.String(required=True)
         transaction_id = graphene.String(required=True)
         admin_email = graphene.String(required=True)
         item = graphene.String(required=True)
@@ -206,7 +204,7 @@ class CheckOutItem(graphene.Mutation):
 
     transactions = graphene.List(TransactionObject)
 
-    def mutate(self, _, user_requested_id, transaction_id, item, admin_email, auth_token):
+    def mutate(self, _, transaction_id, item, admin_email, auth_token):
         validate_authentication(admin_email, auth_token, admin=True)
 
         admin_accepting = Admin.query.filter_by(email=admin_email).first()
@@ -238,7 +236,6 @@ class CheckInItem(graphene.Mutation):
     item: Name of the item being requested.
     transaction_id: ID of the transaction that took place to reserve the item
     admin_email: The name of the administrator checking the item back in
-    quantity: Quantity of the item which had been checked out
     auth_token: Authentication token associated with the administrator user
     """
     class Arguments:
