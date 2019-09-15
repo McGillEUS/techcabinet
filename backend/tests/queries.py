@@ -16,7 +16,7 @@ query_items = '''
 
 create_item = '''
 mutation{
-  createItem(itemName:"%s", quantity: %i, username: "%s", authToken: "%s"){
+  createItem(itemName:"%s", quantity: %i, email: "%s", authToken: "token"){
     items{
       id,
       name,
@@ -27,17 +27,19 @@ mutation{
   }
 }'''
 
-create_user = '''
+create_admin = '''
 mutation{
-  registerUser(username:"%s", password:"%s", email:"%s", studentId:"%s", admin:%s, supersecretpassword:"%s"){
-    authToken
+  createAdmin(email: "%s", name: "%s", password:"%s"){
+    admins{
+      email
+    }
   }
 }
 '''
 
 delete_item = '''
 mutation{
-  deleteItem(itemName:"%s", username:"%s", authToken:"%s"){
+  deleteItem(itemName:"%s", email:"%s", authToken:"token"){
     items{
       id,
       name,
@@ -49,64 +51,25 @@ mutation{
 }
 '''
 
-log_in = '''
+reserve_item = '''
 mutation{
-  loginUser(username:"%s", password:"%s"){
-    authToken
-  }
-}
-'''
-
-validate_token = '''
-mutation{
-  validateToken(username:"%s", authToken:"%s"){
-    valid
+  reserveItem(email: "%s", studentId:"%s", itemName:"%s", quantity:%s, authToken: "token"){
+    items{
+      id,
+      name
+    }
   }
 }
 '''
 
 checkout_item = '''
 mutation{
-  checkOutItem(requestedBy: "%s", email:"%s", password:"%s", studentId:"%s", itemName:"%s", quantity: %i, authToken: ""){
-    items{
-      id,
-      name
-    }
-  }
-}
-'''
-
-checkout_item_loggedin = '''
-mutation{
-  checkOutItem(requestedBy: "%s", email:"", password:"", studentId:"", itemName:"%s", quantity: %i, authToken: "%s"){
-    items{
-      id,
-      name
-    }
-  }
-}
-'''
-
-accept_checkout = '''
-mutation{
-  acceptCheckoutRequest(userAcceptedName:"%s", authToken: "%s", userRequestedId: "%s", transactionId: "%s", item: "%s"){
-    transactions{
-      id,
-      userAccepted,
-      dateAccepted
-    }
-  }
-}
-
-'''
-
-show_transactions = '''
-mutation{
-  showTransactions(username:"%s", authToken: "%s"){
+  checkOutItem(transactionId: "%s", adminEmail:"%s", item:"%s", authToken: ""){
     transactions{
       id,
       userRequestedId,
-      userAccepted
+      adminAccepted,
+      returned
     }
   }
 }
@@ -114,12 +77,24 @@ mutation{
 
 checkin_item = '''
 mutation{
-  checkInItem(adminName:"%s", authToken: "%s", transactionId: "%s", item: "%s"){
+  checkInItem(adminEmail:"%s", authToken: "", transactionId: "%s", item: "%s"){
     transactions{
       id,
       userRequestedId,
-      userAccepted,
+      adminAccepted,
       returned
+    }
+  }
+}
+'''
+
+show_transactions = '''
+mutation{
+  showTransactions(email:"%s", authToken: ""){
+    transactions{
+      id,
+      userRequestedId,
+      adminAccepted
     }
   }
 }

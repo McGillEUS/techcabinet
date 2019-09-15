@@ -13,7 +13,7 @@ import { withStyles } from '@material-ui/core/styles';
 
 import { SimpleTable, SimpleTextField, Alerts } from './components'
 import { tableStyles, textBoxStyles, alertStyles } from './styles'
-import { GET_ITEMS } from './requests'
+import { msalInstance } from './msal.js'
 
 import './App.css';
 
@@ -22,6 +22,10 @@ const axiosGraphQL = axios.create({
   baseURL: 'http://127.0.0.1:4293/graphql',
   headers: {}
 });
+
+const msalRequestScope = {
+  scopes: ["user.read"]
+};
 
 // Initialize basic components and specify which part of the front-end they belong to
 SimpleTextField.propTypes = {
@@ -42,7 +46,7 @@ class App extends Component {
   * State elements of the main application:
   * `results`: The results from querying "items".
   * `transactions`: All transactions a user can see
-  * `tokenValidity`: Level of validity of a token (0: invalid, 1: user, 2: admin)
+  * `authLevel`: Level of validity of a token (0: invalid, 1: user, 2: admin)
   * `authToken`: Authentication token used for performing back-end queries
   * `username`: Username associated with the token. Mismatching username/token = invalid authentication
   * `authErrors`: Simple string used for showing users authentication errors they might encounter.
@@ -54,9 +58,10 @@ class App extends Component {
     this.state = {
       results: [],
       transactions: [],
-      tokenValidity: 0,
+      authLevel: 0,
       authToken: "",
-      username: "",
+      email: "",
+      name: "",
       authErrors: "",
       errors: "",
       loading: true
@@ -67,7 +72,7 @@ class App extends Component {
     this.deleteItem = this.deleteItem.bind(this);
     this.checkOutItem = this.checkOutItem.bind(this);
     this.checkInItem = this.checkInItem.bind(this);
-    this.acceptCheckoutRequest = this.acceptCheckoutRequest.bind(this);
+    this.reserveItem = this.reserveItem.bind(this);
     this.logIn = this.logIn.bind(this);
   }
 
@@ -81,26 +86,42 @@ class App extends Component {
    * Basic query, simply retrieves all items for the user.
    */
   getAllItems() {
-    axiosGraphQL
-      .post('', { query: GET_ITEMS })
-      .then(results => {this.setState({results: results.data.data.allItems.edges.map(result => result.node)})},
-            error => {console.log(error); console.log(GET_ITEMS)});
+    const GET_ITEMS = `
+    {
+      allItems{
+        edges{
+          node{
+            id,
+            name,
+            dateIn,
+            dateOut,
+            quantity        
+          }
+        }
+      }
+    }
+  `;
+
+  axiosGraphQL
+    .post('', { query: GET_ITEMS })
+    .then(results => {this.setState({results: results.data.data.allItems.edges.map(result => result.node)})},
+          error => {console.log(error); console.log(GET_ITEMS)});
   };
 
   /**
-   * Mutation despite also being a `get` because I had trouble implementing the authentication check as a Query.
+   * Mutation because I had a hard time figuring out how to return different things for different auth levels with a query
    * Retrieves all transactions depending on the authentication level of the user (verified on the back-end)
    */
   getAllTransactions(){
     const GET_TRANSACTIONS = `
     mutation{
-    showTransactions(username: "${this.state.username}",
+    showTransactions(email: "${this.state.email}",
                      authToken: "${this.state.authToken}"){
       transactions{
         id,
         accepted,
         returned,
-        userAccepted,
+        adminAccepted,
         userRequestedId,
         requestedQuantity,
         dateAccepted,
@@ -111,78 +132,76 @@ class App extends Component {
     }
   }
   `;
-    axiosGraphQL
+
+  axiosGraphQL
     .post('', { query: GET_TRANSACTIONS })
-    .then(results => {this.setState({transactions: results.data.data.showTransactions.transactions})},
-          error => {
-            console.log(error);
-            this.setState({errors: "Couldn't load all transactions."})
-          });
+    .then(
+      results => {
+        this.setState({
+          transactions: results.data.data.showTransactions.transactions
+        })
+      },
+      error => {
+        console.log(error);
+        this.setState({errors: "Couldn't load all transactions."})
+      });
   }
 
   /**
-   * Creates a checkout request for a user.
+   * Creates a reservation for a user.
    * If  the optional fields are not provided, the user must currently be authenticated.
    * @param {string} itemName: Name of the item getting checked out
    * @param {int} quantity: How much of the object is getting checked out
-   * @param {string} username: (optional) User requesting to check out the item
-   * @param {string} password: (optional) Password of this user
-   * @param {string} email: (optional) E-mail of this user
-   * @param {string} studentID: (optional) Student ID for this user.
+   * @param {string} studentID: Student ID for this user.
    */
-  checkOutItem(itemName, quantity, username, password, email, studentID){
-    username = username || this.state.username;
-    password = password || "";
-    email = email || "";
+  reserveItem(itemName, quantity, studentID){
     studentID = studentID || "";
 
-    const CHECKOUT_ITEM = `
+    const RESERVE_ITEM = `
       mutation{
-        checkOutItem(requestedBy: "${username}", quantity: ${quantity},
-                     authToken: "${this.state.authToken}", itemName:"${itemName}",
-                     email:"${email}", password:"${password}", studentId:"${studentID}"){
+        reserveItem(email: "${this.state.email}", studentId: "${studentID}",
+                    authToken: "${this.state.authToken}", quantity: ${quantity},
+                    itemName:"${itemName}"){
           items{
             name
           }
         }
       }
     `
+
     axiosGraphQL
-    .post('', { query: CHECKOUT_ITEM })
-    .then(
-      results => {
-        if (results.data.errors.length > 0){
-          this.setState({errors: `Checkout request unsuccessful. ${results.data.errors[0].message}`});
+      .post('', { query: RESERVE_ITEM })
+      .then(
+        results => {
+          if (results.data.errors && results.data.errors.length > 0){
+            this.setState({errors: `Checkout request unsuccessful. ${results.data.errors[0].message}`});
+          }
+          else{
+            this.setState({results: results.data.data.reserveItem.items});
+            window.location.reload();
+          }
+        },
+        error => {
+          this.setState({errors: `Couldn't check out ${itemName}. ${error}`});
         }
-        else{
-          this.setState({results: results.data.data.checkOutItem.items});
-          window.location.reload();
-        }
-      },
-      error => {
-        console.log(error);
-        console.log(CHECKOUT_ITEM);
-        this.setState({errors: `Couldn't check out ${itemName}`});
-      });
+      );
   }
 
   /**
-   * Administrators accept the check out requests of normal users
-   * @param {string} userRequestedId: ID of user who created the checkout request
+   * Administrators accept the reservations of normal users & check out the item
    * @param {string} transactionId: ID of the transaction being accepted
    * @param {string} item: Name of the item getting checked out
    */
-  acceptCheckoutRequest(userRequestedId, transactionId, item) {
+  checkOutItem(transactionId, item) {
     const ACCEPT_CHECKOUT_REQUEST = `
     mutation{
-      acceptCheckoutRequest(userRequestedId: "${userRequestedId}", transactionId: "${transactionId}",
-                            userAcceptedName: "${this.state.username}", item: "${item}",
-                            authToken: "${this.state.authToken}"){
+      checkOutItem(transactionId: "${transactionId}", item: "${item}",
+                   adminEmail: "${this.state.email}", authToken: "${this.state.authToken}"){
         transactions{
           id,
           accepted,
           returned,
-          userAccepted,
+          adminAccepted,
           userRequestedId,
           requestedQuantity,
           dateAccepted,
@@ -193,21 +212,22 @@ class App extends Component {
       }
     }
   `;
-    axiosGraphQL
-      .post('', { query: ACCEPT_CHECKOUT_REQUEST} )
-      .then(results => {
-        if (results.data.errors.length > 0){
+
+  axiosGraphQL
+    .post('', { query: ACCEPT_CHECKOUT_REQUEST} )
+    .then(
+      results => {
+        if (results.data.errors && results.data.errors.length > 0){
           this.setState({errors: `Couldn't accept checkout request. ${results.data.errors[0].message}`});
         }
         else{
-          this.setState({transactions: results.data.data.acceptCheckoutRequest.transactions});
+          this.setState({transactions: results.data.data.checkOutItem.transactions});
         }
       },
       error => {
-        console.log(error);
-        console.log(ACCEPT_CHECKOUT_REQUEST);
-        this.setState({errors: `Couldn't accept check out for ${item}`});
-      });
+        this.setState({errors: `Couldn't accept check out for ${item}. ${error}`});
+      }
+    );
   }
 
   /**
@@ -219,12 +239,12 @@ class App extends Component {
     const CHECKIN_ITEM = `
     mutation{
       checkInItem(item: "${item}", transactionId: "${transactionId}",
-                  adminName: "${this.state.username}", authToken: "${this.state.authToken}"){
+                  adminEmail: "${this.state.email}", authToken: "${this.state.authToken}"){
         transactions{
           id,
           accepted,
           returned,
-          userAccepted,
+          adminAccepted,
           userRequestedId,
           requestedQuantity,
           dateAccepted,
@@ -235,22 +255,24 @@ class App extends Component {
       }
     }
   `;
-    axiosGraphQL
-      .post('', { query: CHECKIN_ITEM} )
-      .then(
-        results => {
-          if (results.data.errors.length > 0){
-            this.setState({errors: `Couldn't request check in. ${results.data.errors[0].message}`});
-          }
-          else{
-            this.setState({transactions: results.data.data.checkInItem.transactions})
-          }
-        },
-        error => {
-          console.log(error);
-          console.log(CHECKIN_ITEM);
-          this.setState({errors: `Couldn't check in ${item}`});
-        });
+
+  axiosGraphQL
+    .post('', { query: CHECKIN_ITEM} )
+    .then(
+      results => {
+        if (results.data.errors && results.data.errors.length > 0){
+          this.setState({errors: `Couldn't request check in. ${results.data.errors[0].message}`});
+        }
+        else{
+          this.setState({transactions: results.data.data.checkInItem.transactions})
+        }
+      },
+      error => {
+        console.log(error);
+        console.log(CHECKIN_ITEM);
+        this.setState({errors: `Couldn't check in ${item}`});
+      }
+    );
   }
 
   /**
@@ -261,7 +283,7 @@ class App extends Component {
   createItem(item, quantity){
     const CREATE_ITEM = `
     mutation{
-      createItem(authToken: "${this.state.authToken}", username: "${this.state.username}",
+      createItem(authToken: "${this.state.authToken}", email: "${this.state.email}",
                  itemName: "${item}", quantity: ${quantity}){
         items{
           name,
@@ -271,14 +293,17 @@ class App extends Component {
       }
     }
   `;
-    axiosGraphQL
+
+  axiosGraphQL
     .post('', { query: CREATE_ITEM} )
-    .then(results => {console.log(results); this.setState({results: results.data.data.createItem.items})},
-          error => {
-            console.log(error);
-            console.log(CREATE_ITEM);
-            this.setState({errors: `Couldn't create ${item}`});
-          });
+    .then(
+      results => {this.setState({results: results.data.data.createItem.items})},
+      error => {
+        console.log(error);
+        console.log(CREATE_ITEM);
+        this.setState({errors: `Couldn't create ${item}`});
+      }
+    );
   }
 
   /**
@@ -289,7 +314,7 @@ class App extends Component {
     const DELETE_ITEM = `
       mutation{
         deleteItem(itemName: "${item}", authToken: "${this.state.authToken}",
-                   username:"${this.state.username}"){
+                   email:"${this.state.email}"){
           items{
             name,
             dateIn,
@@ -309,64 +334,69 @@ class App extends Component {
           });
   }
 
+
   /**
    * Verify that a user's authentication token and username (from localstorage) are valid.
+   * Also updates state to track user's authentication status
    */
   verifyAuthentication(){
-    const authToken = localStorage.getItem("authToken");
-    const username = localStorage.getItem("username");
-
-    const VALIDATE_TOKEN = `
-    mutation{
-      validateToken(username: "${username}", authToken:"${authToken}"){
-        valid
-      }
+    const account = msalInstance.getAccount()
+    if (account) {
+      msalInstance.acquireTokenSilent(msalRequestScope)
+        .then(
+          response => this.updateAuthenticatedState(response.accessToken, account.userName, account.name)
+        )
+    } else {
+      this.updateAuthenticatedState();
     }
-    `
-    axiosGraphQL
-    .post('', { query: VALIDATE_TOKEN })
-    .then(result => {this.updateAuthenticatedState(authToken, username, result.data.data.validateToken.valid)},
-          error => {
-            console.log(VALIDATE_TOKEN);
-            console.log(error);
-            this.setState({loading: false});
-            this.setState({errors: "You have logged out."});
-          });
   }
 
   /**
    * Updates the state when a token's validity is established
    * @param {string} authToken 
    * @param {string} username 
-   * @param {int} validityLevel: 0: Invalid, 1: User, 2: Administrator
+   * @param {boolean} isAdmin
    */
-  updateAuthenticatedState(authToken, username, validityLevel){
-    if (validityLevel > 0){
-      this.setState({authToken: authToken, username: username, tokenValidity: validityLevel});
-      this.getAllTransactions();
-    }
-    this.setState({loading: false});
+  updateAuthenticatedState(authToken=null, email=null, name=null){
+    const AUTH_LEVEL = `
+      mutation{
+        authenticationLevel(
+          authToken: "${authToken}",
+          email: "${email}")
+        {
+          level
+        }
+      }
+    `
+    axiosGraphQL
+    .post('', { query: AUTH_LEVEL })
+    .then(
+      results => {
+        this.setState({
+          authToken: authToken,
+          email: email,
+          name: name,
+          authLevel: results.data.data.authenticationLevel.level,
+          loading: false
+        });
+        this.getAllTransactions();
+      },
+      error => {
+        console.log(error);
+        this.setState({errors: `Couldn't log in. ${error}`, loading: false});
+      }
+    );
   }
 
   /**
    * Allows user to log in
-   * @param {string} username
-   * @param {string} password
    */
-  logIn(username, password){
-    const LOGIN = `
-    mutation{
-      loginUser(username:"${username}", password:"${password}"){
-        authToken
-      }
-    }
-    `
-    axiosGraphQL
-    .post('', { query: LOGIN })
-    .then(results => {this.handleLogInInfo(results, username)},
-          error => {console.log(LOGIN);
-                    console.log(error);
-                    this.setState({authErrors: "Invalid username or password."})});
+  logIn(){
+    msalInstance.loginPopup(msalRequestScope)
+    .then(
+      response => { window.location.reload(); },
+      error => { console.log(error) }
+    )
   }
 
   /**
@@ -374,35 +404,7 @@ class App extends Component {
    * In the backend, the valid token is blacklisted.
    */
   logOut(){
-    const LOGOUT = `
-    mutation{
-      logoutUser(authToken:"${this.state.authToken}"){
-        status
-      }
-    }
-    `
-    axiosGraphQL
-    .post('', { query: LOGOUT })
-    .then(result => {result.data.data.logoutUser.status === "success" ? this.setState({tokenValidity: 0}) : console.log("Failed to log out...");
-                     window.location.reload();},
-          error => {console.log(LOGOUT); console.log(error)});
-  }
-
-  /**
-   * When a user has logged in, this function updates the state and localstorage.
-   * @param {string} results: Authentication results from GraphQL query
-   * @param {string} username: Username used to produce the authentication results
-   */
-  handleLogInInfo(results, username){
-    if (results.data.data.loginUser != null){
-      localStorage.setItem("authToken", results.data.data.loginUser.authToken);
-      localStorage.setItem("username", username);
-      window.location.reload();
-    } else {
-      console.log("error");
-      this.setState({authErrors: "Invalid username or password."})
-      console.log(results);
-    }
+    msalInstance.logout()
   }
 
   render() {
@@ -422,12 +424,13 @@ class App extends Component {
               <img src={logo} className="App-logo" alt="logo" />
               <p>Tech Cabinet Rental Platform</p>
             </div>
-            <div className="login" style={{display: this.state.tokenValidity > 0 ? "none" : "block" }}>
-              <SimpleStyledTextField textFieldLabel1="username" textFieldLabel2="password" errors={this.state.authErrors}
-                                     label="Log In" type="password" onClickEvent={this.logIn}/>
+            <div className="login" style={{display: !this.state.email && !this.state.authToken ? "block" : "none" }}>
+              <Button variant="contained" onClick={(e) => this.logIn()}>
+                Log In
+              </Button>
             </div>
-            <div className="welcome" style={{display: this.state.tokenValidity > 0 ? "block" : "none" }}>
-              <p> Welcome, {this.state.username}! </p>
+            <div className="welcome" style={{display: this.state.email && this.state.authToken ? "block" : "none" }}>
+              <p> Welcome, {this.state.name}! </p>
               <Button variant="contained" onClick={(e) => this.logOut()}>
                 Log Out
               </Button>
@@ -440,14 +443,14 @@ class App extends Component {
           <p>Please contact Chris in the EUS Office (<b>McConnell room 7</b>) to collect your item.</p>
           <p>You are expected to return rented items within <b>five days</b> excluding week-ends.</p>
           <h1>Available Items</h1>
-          <RentalTable tokenValidity={this.state.tokenValidity} results={this.state.results} deleteItem={this.deleteItem} requestItem={this.checkOutItem}/>
-          <div className="form" style={{display: this.state.tokenValidity > 1 ? "block" : "none" }}>
+          <RentalTable tokenValidity={this.state.authLevel} results={this.state.results} deleteItem={this.deleteItem} reserveItem={this.reserveItem}/>
+          <div className="form" style={{display: this.state.email && this.state.authToken ? "block" : "none" }}>
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
           </div>
           <br></br>
-          <div className="transactions" style={{display: this.state.tokenValidity > 0 ? "block" : "none" }}>
-          <h1 style={{display: this.state.tokenValidity === 1 ? "block" : "none" }}> Your Requests </h1>
-          <h1 style={{display: this.state.tokenValidity === 2 ? "block" : "none" }}> Request History </h1>
+          <div className="transactions" style={{display: this.state.email && this.state.authLevel > 0 ? "block" : "none" }}>
+          <h1 style={{display: this.state.authLevel === 1 ? "block" : "none" }}> Your Requests </h1>
+          <h1 style={{display: this.state.authLevel === 2 ? "block" : "none" }}> Request History </h1>
           <Table>
           <TableHead>
             <TableRow>
@@ -459,7 +462,7 @@ class App extends Component {
               <TableCell align="true">Quantity Requested</TableCell>
               <TableCell align="true">Order Accepted?</TableCell>
               <TableCell align="true">User Who Accepted The Order</TableCell>
-              {this.state.tokenValidity > 1 ? <TableCell align="true">Action</TableCell> : null}
+              {this.state.authLevel > 1 ? <TableCell align="true">Action</TableCell> : null}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -473,10 +476,10 @@ class App extends Component {
                   <TableCell align="true">{row.dateReturned}</TableCell>
                   <TableCell align="true">{row.requestedQuantity}</TableCell>
                   <TableCell align="true">{row.accepted ? "Yes" : "No"}</TableCell>
-                  <TableCell align="true">{row.userAccepted}</TableCell>
-                  {this.state.tokenValidity > 1 ?
+                  <TableCell align="true">{row.adminAccepted}</TableCell>
+                  {this.state.authLevel > 1 ?
                   <TableCell align="true">
-                    {!row.accepted ? <Button onClick={() => this.acceptCheckoutRequest(row.userRequestedId, row.id, row.item) }>Accept</Button> : null}
+                    {!row.accepted ? <Button onClick={() => this.checkOutItem(row.id, row.item) }>Accept</Button> : null}
                     {row.accepted && !row.returned ? <Button onClick={() => {this.checkInItem(row.item, row.id);}} >Check In</Button> : null}
                   </TableCell>
                   : null
