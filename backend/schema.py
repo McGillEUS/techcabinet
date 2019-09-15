@@ -8,7 +8,7 @@ import os
 import requests
 from tables import Item, Transaction, Admin
 
-from utils import db
+from utils import db, supersecretpassword
 
 
 err_auth_admin = "You must be an authenticated administrator!"
@@ -68,7 +68,6 @@ class CreateItem(graphene.Mutation):
             raise Exception("Already found one of this item...")
             
         validate_authentication(email, auth_token, admin=True)
-
         item = Item(name=item_name, quantity=quantity, date_in=datetime.now(), created_by=email)
         db.session.add(item)
         db.session.commit()
@@ -125,7 +124,12 @@ class ShowTransactions(graphene.Mutation):
     transactions = graphene.List(TransactionObject)
 
     def mutate(self, _, email, auth_token):
-        transactions = Transaction.query.all() if auth_level(email, auth_token) == 2 else Transaction.query.filter_by(user_requested_email=email).all()
+        transactions = []
+        if auth_level(email, auth_token) == 2:
+            transactions = Transaction.query.all()
+        elif auth_level(email, auth_token) == 1:
+            transactions = Transaction.query.filter_by(user_requested_email=email).all()
+
         return ShowTransactions(transactions=transactions)
 
 
@@ -275,10 +279,15 @@ class CreateAdmin(graphene.Mutation):
     class Arguments:
         email = graphene.String(required=True)
         name = graphene.String(required=True)
+        password = graphene.String(required=True)
 
     admins = graphene.List(AdminObject)
 
-    def mutate(self, _, email, name):
+    def mutate(self, _, email, name, password):
+        if password != supersecretpassword:
+          return CreateAdmin(admins=[])
+
+
         admin = Admin(email=email, name=name, date_created=datetime.now())
         db.session.add(admin)
         db.session.commit()

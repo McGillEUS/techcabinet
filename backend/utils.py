@@ -16,6 +16,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql:///techcabinetdata'
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 
+supersecretpassword = os.environ.get("supersecretpassword", "")
+
 db = SQLAlchemy(app)
 
 token_expiry =  int(os.environ.get("TOKEN_EXPIRY", "180"))
