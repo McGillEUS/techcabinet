@@ -34,6 +34,11 @@
   margin-right: 25px;
 }
 
+.login {
+  font-size: 25px;
+  padding-top: 30px;
+}
+
 .welcome p{
   display: inline-block;
   margin-right: 10px;

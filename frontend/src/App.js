@@ -123,6 +123,7 @@ class App extends Component {
         returned,
         adminAccepted,
         userRequestedId,
+        userRequestedEmail,
         requestedQuantity,
         dateAccepted,
         dateRequested,
@@ -174,7 +175,7 @@ class App extends Component {
       .then(
         results => {
           if (results.data.errors && results.data.errors.length > 0){
-            this.setState({errors: `Checkout request unsuccessful. ${results.data.errors[0].message}`});
+            this.setState({errors: `Reservation request unsuccessful. ${results.data.errors[0].message}`});
           }
           else{
             this.setState({results: results.data.data.reserveItem.items});
@@ -203,6 +204,7 @@ class App extends Component {
           returned,
           adminAccepted,
           userRequestedId,
+          userRequestedEmail,
           requestedQuantity,
           dateAccepted,
           dateRequested,
@@ -212,7 +214,6 @@ class App extends Component {
       }
     }
   `;
-
   axiosGraphQL
     .post('', { query: ACCEPT_CHECKOUT_REQUEST} )
     .then(
@@ -246,6 +247,7 @@ class App extends Component {
           returned,
           adminAccepted,
           userRequestedId,
+          userRequestedEmail,
           requestedQuantity,
           dateAccepted,
           dateRequested,
@@ -297,7 +299,14 @@ class App extends Component {
   axiosGraphQL
     .post('', { query: CREATE_ITEM} )
     .then(
-      results => {this.setState({results: results.data.data.createItem.items})},
+      results => {
+        if (results.data.errors && results.data.errors.length > 0){
+          this.setState({errors: `Couldn't create item. ${results.data.errors[0].message}`});
+        }
+        else{
+          this.setState({results: results.data.data.createItem.items})
+        }
+      },
       error => {
         console.log(error);
         console.log(CREATE_ITEM);
@@ -326,12 +335,19 @@ class App extends Component {
     `;
     axiosGraphQL
     .post('', { query: DELETE_ITEM })
-    .then(results => {this.setState({results: results.data.data.deleteItem.items})},
-          error => {
-            console.log(error);
-            console.log(DELETE_ITEM);
-            this.setState({errors: `Couldn't delete ${item}`});
-          });
+    .then(results => {
+      if (results.data.errors && results.data.errors.length > 0){
+        this.setState({errors: `Couldn't delete item. ${results.data.errors[0].message}`});
+      }
+      else{
+        this.setState({results: results.data.data.deleteItem.items})
+      }      
+    },
+    error => {
+      console.log(error);
+      console.log(DELETE_ITEM);
+      this.setState({errors: `Couldn't delete ${item}`});
+    });
   }
 
 
@@ -444,7 +460,7 @@ class App extends Component {
           <p>You are expected to return rented items within <b>five days</b> excluding week-ends.</p>
           <h1>Available Items</h1>
           <RentalTable tokenValidity={this.state.authLevel} results={this.state.results} deleteItem={this.deleteItem} reserveItem={this.reserveItem}/>
-          <div className="form" style={{display: this.state.email && this.state.authToken ? "block" : "none" }}>
+          <div className="form" style={{display: this.state.email && this.state.authToken && this.state.authLevel === 2 ? "block" : "none" }}>
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
           </div>
           <br></br>
@@ -454,14 +470,15 @@ class App extends Component {
           <Table>
           <TableHead>
             <TableRow>
-              <TableCell align="true">User Requesting Item</TableCell>
+              <TableCell align="true">Email</TableCell>
+              <TableCell align="true">Student ID</TableCell>
               <TableCell align="true">Item Requested</TableCell>
               <TableCell align="true">Date Requested</TableCell>
               <TableCell align="true">Date Accepted</TableCell>
               <TableCell align="true">Date Returned</TableCell>
               <TableCell align="true">Quantity Requested</TableCell>
               <TableCell align="true">Order Accepted?</TableCell>
-              <TableCell align="true">User Who Accepted The Order</TableCell>
+              <TableCell align="true">Admin Who Accepted The Order</TableCell>
               {this.state.authLevel > 1 ? <TableCell align="true">Action</TableCell> : null}
             </TableRow>
           </TableHead>
@@ -469,6 +486,7 @@ class App extends Component {
             {this.state.transactions.map((row, index) => {
               return (
                 <TableRow key={index}>
+                  <TableCell align="true">{row.userRequestedEmail}</TableCell>
                   <TableCell align="true">{row.userRequestedId}</TableCell>
                   <TableCell align="true">{row.item}</TableCell>
                   <TableCell align="true">{row.dateRequested}</TableCell>
