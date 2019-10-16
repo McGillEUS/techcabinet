@@ -17,9 +17,10 @@ import { msalInstance } from './msal.js'
 
 import './App.css';
 
-// Deployed URL: 'https://rental.mcgilleus.ca/graphql'
+// [DEPLOY TODO]: baseURL needs to be changed to 'https://rental.mcgilleus.ca/graphql'
+// The app will not run unless the baseURL points to where the Python back-end is running.
 const axiosGraphQL = axios.create({
-  baseURL: 'http://127.0.0.1:4293/graphql',
+  baseURL: 'http://localhost:4293/graphql',
   headers: {}
 });
 
@@ -85,7 +86,7 @@ class App extends Component {
   /**
    * Basic query, simply retrieves all items for the user.
    */
-  getAllItems() {
+  getAllItems(label=null) {
     const GET_ITEMS = `
     {
       allItems{
@@ -104,8 +105,12 @@ class App extends Component {
 
   axiosGraphQL
     .post('', { query: GET_ITEMS })
-    .then(results => {this.setState({results: results.data.data.allItems.edges.map(result => result.node)})},
-          error => {console.log(error); console.log(GET_ITEMS)});
+    .then(results => {
+      this.setState({results: results.data.data.allItems.edges
+        .filter(result => label == null ? true : result.node.name.includes(label))
+        .map(result => result.node)})
+      },
+      error => {console.log(error); console.log(GET_ITEMS)});
   };
 
   /**
@@ -297,7 +302,15 @@ class App extends Component {
   axiosGraphQL
     .post('', { query: CREATE_ITEM} )
     .then(
-      results => {this.setState({results: results.data.data.createItem.items})},
+      results => {
+        if (results.data.errors && results.data.errors.length > 0){
+          this.setState({errors: `Creation request unsuccessful. ${results.data.errors[0].message}`});
+        }
+        else{
+          this.setState({results: results.data.data.createItem.items});
+          window.location.reload();
+        }
+      },
       error => {
         console.log(error);
         console.log(CREATE_ITEM);
@@ -326,12 +339,20 @@ class App extends Component {
     `;
     axiosGraphQL
     .post('', { query: DELETE_ITEM })
-    .then(results => {this.setState({results: results.data.data.deleteItem.items})},
-          error => {
-            console.log(error);
-            console.log(DELETE_ITEM);
-            this.setState({errors: `Couldn't delete ${item}`});
-          });
+    .then(results => {
+        if (results.data.errors && results.data.errors.length > 0){
+          this.setState({errors: `Delete request unsuccessful. ${results.data.errors[0].message}`});
+        }
+        else{
+          this.setState({results: results.data.data.deleteItem.items});
+          window.location.reload();
+        }
+      },
+      error => {
+        console.log(error);
+        console.log(DELETE_ITEM);
+        this.setState({errors: `Couldn't delete ${item}`});
+      });
   }
 
 
@@ -372,14 +393,22 @@ class App extends Component {
     .post('', { query: AUTH_LEVEL })
     .then(
       results => {
-        this.setState({
-          authToken: authToken,
-          email: email,
-          name: name,
-          authLevel: results.data.data.authenticationLevel.level,
-          loading: false
-        });
-        this.getAllTransactions();
+        if (results.data.data){
+          this.setState({
+            authToken: authToken,
+            email: email,
+            name: name,
+            authLevel: results.data.data.authenticationLevel.level,
+            loading: false
+          });
+          this.getAllTransactions();
+        } else {
+          if (results.data.errors && results.data.errors.length > 0){
+            this.setState({errors: `Error updating login information. ${results.data.errors[0].message}`});
+          } else {
+            this.setState({errors: `Error updating login information.`});
+          }
+        }
       },
       error => {
         console.log(error);
@@ -422,7 +451,7 @@ class App extends Component {
         <header className="App-header">
             <div className="logo">
               <img src={logo} className="App-logo" alt="logo" />
-              <p>Tech Cabinet Rental Platform</p>
+              <p>EUS Rental Platform</p>
             </div>
             <div className="login" style={{display: !this.state.email && !this.state.authToken ? "block" : "none" }}>
               <Button variant="contained" onClick={(e) => this.logIn()}>
@@ -436,15 +465,20 @@ class App extends Component {
               </Button>
             </div>
         </header>
+        <div class="tab">
+          <Button class="tablinks" onClick={() => this.getAllItems()}>All</Button>
+          <Button class="tablinks" onClick={() => this.getAllItems('[BBQ]')}>Barbecue</Button>
+          <Button class="tablinks" onClick={() => this.getAllItems('[TECH]')}>Tech Cabinet</Button>
+        </div>
         <div className="container">
           <h1>Information</h1>
-          <p>Welcome to the Engineering Undergraduate Society's rental platform for the tech cabinet.</p>
+          <p>Welcome to the Engineering Undergraduate Society's rental platform.</p>
           <p>To request an item, simply click on its name and follow the form instructions.</p>
           <p>Please contact Chris in the EUS Office (<b>McConnell room 7</b>) to collect your item.</p>
           <p>You are expected to return rented items within <b>five days</b> excluding week-ends.</p>
           <h1>Available Items</h1>
           <RentalTable tokenValidity={this.state.authLevel} results={this.state.results} deleteItem={this.deleteItem} reserveItem={this.reserveItem}/>
-          <div className="form" style={{display: this.state.email && this.state.authToken ? "block" : "none" }}>
+          <div className="form" style={{display: this.state.email && this.state.authToken && this.state.authLevel > 1 ? "block" : "none" }}>
             <SimpleStyledTextField textFieldLabel1="item" textFieldLabel2="quantity" label="Add item" onClickEvent={this.createItem}/>
           </div>
           <br></br>
